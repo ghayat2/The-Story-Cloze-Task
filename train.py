@@ -1,0 +1,175 @@
+import data_utils
+from models.bidirectional_lstm import BiDirectional_LSTM
+import augment
+from augment import RandomPicker
+
+import tensorflow as tf
+import numpy as np
+import os
+import time
+import datetime
+import matplotlib.pyplot as plt
+
+import functools
+import sys
+
+# PARAMETERS #
+# Data loading parameters
+tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data used for validation (default: 10%)")
+
+# Model parameters
+tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
+tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
+
+
+# Augmenting parameters
+
+
+# Training parameters
+tf.flags.DEFINE_float("learning_rate", 0.001, "Learning rate (default: 0.001)")
+tf.flags.DEFINE_integer("repeat_train_dataset", 5000, "Number of times to repeat the dataset")
+tf.flags.DEFINE_integer("shuffle_buffer_size", 5, "Buffer size for shuffling")
+tf.flags.DEFINE_integer("batch_size", 4, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
+tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("checkpoint_every", 500, "Save model after this many steps (default: 100)")
+tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
+
+# Tensorflow Parameters
+tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
+tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
+
+# for running on EULER, adapt this
+tf.flags.DEFINE_integer("inter_op_parallelism_threads", 2,
+                        "TF nodes that perform blocking operations are enqueued on a pool of "
+                        "inter_op_parallelism_threads available in each process (default 0).")
+tf.flags.DEFINE_integer("intra_op_parallelism_threads", 2,
+                        "The execution of an individual op (for some op types) can be parallelized on a pool of "
+                        "intra_op_parallelism_threads (default: 0).")
+
+FLAGS = tf.flags.FLAGS
+FLAGS(sys.argv)
+
+print("\nParameters:")
+for attr, value in sorted(FLAGS.__flags.items()):
+    print("{}={}".format(attr.upper(), value.value))
+print("")
+
+
+# sentence embeddings
+
+
+
+allSentences = ...
+randomPicker = RandomPicker(allSentences)
+
+
+# Create sesions
+# MODEL AND TRAINING PROCEDURE DEFINITION #
+with tf.Graph().as_default():
+
+    # Placeholder tensor for input
+    input_x = tf.placeholder(tf.string, [None])
+    input_y = tf.placeholder(tf.string, [None])
+
+    """Iterator stuff"""
+    # Initialize model
+    handle = tf.placeholder(tf.string, shape=[])
+
+    train_augment_config = {
+        'randomPicker': randomPicker
+    }
+    train_augment_fn = functools.partial(augment.augment_data, **train_augment_config)
+
+    validation_augment_config = {
+        'randomPicker': randomPicker
+    }
+    validation_augment_fn = functools.partial(augment.augment_data, **validation_augment_config)
+
+    train_dataset = data_utils.get_data_iterator(input_x,
+                                                 input_y,
+                                                 augment_fn=train_augment_fn,
+                                                 batch_size=FLAGS.batch_size,
+                                                 repeat_train_dataset=FLAGS.repeat_train_dataset) \
+        .shuffle(buffer_size=FLAGS.shuffle_buffer_size)
+
+    test_dataset = data_utils.get_data_iterator(input_x,
+                                                input_y,
+                                                augment_fn=validation_augment_fn,
+                                                batch_size=FLAGS.batch_size,
+                                                repeat_train_dataset=FLAGS.repeat_train_dataset)
+
+    # Iterators on the training and validation dataset
+    train_iterator = train_dataset.make_initializable_iterator()
+    test_iterator = test_dataset.make_initializable_iterator()
+
+    iter = tf.data.Iterator.from_string_handle(
+        handle, train_dataset.output_types, train_dataset.output_shapes)
+
+    next_batch_context_x, next_batch_endings_y = iter.get_next()
+
+    next_batch_context_x.set_shape([FLAGS.batch_size, FLAGS.sentence_length, FLAGS.word_embedding_dimension])
+
+    train_init_op = iter.make_initializer(train_dataset, name='train_dataset')
+    test_init_op = iter.make_initializer(test_dataset, name='test_dataset')
+
+    session_conf = tf.ConfigProto(
+        allow_soft_placement=FLAGS.allow_soft_placement,
+        log_device_placement=FLAGS.log_device_placement,
+        inter_op_parallelism_threads=FLAGS.inter_op_parallelism_threads,
+        intra_op_parallelism_threads=FLAGS.intra_op_parallelism_threads)
+    sess = tf.Session(config=session_conf)
+    with sess.as_default():
+
+        # Build execution graph
+        network = BiDirectional_LSTM(next_batch_context_x)
+
+        # Compare with next_batch_endings_y
+        loss = tf.reduce_mean(
+            # loss something
+        )
+
+        # Define training procedure
+        global_step = tf.Variable(0, name="global_step", trainable=False)
+        # TODO: Define an optimizer, e.g. AdamOptimizer
+        optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
+        # TODO: Define a training operation, including the global_step
+        train_op = optimizer.minimize(loss, global_step=global_step)
+
+        # Output directory for models and summaries
+        timestamp = str(int(time.time()))
+        out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
+        print("Writing to {}\n".format(out_dir))
+
+        # Summaries for loss and accuracy
+        loss_summary = tf.summary.scalar("loss", loss)
+        acc_summary = tf.summary.scalar("accuracy", accuracy)
+        f1_summary = tf.summary.scalar("f1", f1)
+
+        # Train Summaries
+        train_summary_op = tf.summary.merge([loss_summary, acc_summary, f1_summary])
+        train_summary_dir = os.path.join(out_dir, "summaries", "train")
+        train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
+
+        # Dev summaries
+        dev_summary_op = tf.summary.merge([loss_summary, acc_summary, f1_summary])
+        dev_summary_dir = os.path.join(out_dir, "summaries", "dev")
+        dev_summary_writer = tf.summary.FileWriter(dev_summary_dir, sess.graph)
+
+        # Checkpoint directory (TensorFlow assumes this directory already exists so we need to create it)
+        checkpoint_dir = os.path.abspath(os.path.join(out_dir, "checkpoints"))
+        checkpoint_prefix = os.path.join(checkpoint_dir, "model")
+        if not os.path.exists(checkpoint_dir):
+            os.makedirs(checkpoint_dir)
+        saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)
+
+        # Plot dir
+        plot_dir = os.path.join(out_dir, "plots")
+        if not os.path.exists(plot_dir):
+            os.makedirs(plot_dir)
+
+        # Initialize all variables
+        init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+        sess.run(init)
+        sess.graph.finalize()
+
