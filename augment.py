@@ -17,9 +17,6 @@ class RandomPicker:
     def pick(self):
         return np.random.sample(self.dictionary)
 
-def encode_sentences(sentences, embedding_matrix):
-    # Encodes sentences into embedding matrix
-
 
 def split_sentences(sentences):
     # Split sentences into [context], ending
@@ -29,13 +26,15 @@ def augment_data(context, endings,
                  randomPicker = None): # Augment the data
 
     if randomPicker is not None:
-        endings = [endings[0], randomPicker.pick()]
+        randomSentence = randomPicker.pick()
+        # randomSentenceEncoded = # Encode this somehow
+        endings = [endings[0], randomSentence]
 
     return context, endings
 
 
 def get_data_iterator(sentences,
-                      embed_fn=functools.partial(encode_sentences),
+                      embed_fn=None,
                         augment_fn=functools.partial(augment_data),
                         threads=5,
                         batch_size=1,

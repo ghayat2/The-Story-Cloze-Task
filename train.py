@@ -57,11 +57,15 @@ print("")
 
 
 # sentence embeddings
-embed_config = {
-    'embedding_matrix': MATRIX
-}
-embed_config_fn = functools.partial(augment.augment_data, **embed_config)
+# sentences is the vector of size 5 with the vector of size 30 with word numbers, [batch_size, sentence_len, vocab_size]
+# [
+#   [ 1, 3, 15, 151, .. , ],
+#   [ 1, 2 ], ... ]
+# ]
+def encode(sentences):
+    # dummy encode method
 
+    return sentences
 
 allSentences = ...
 randomPicker = RandomPicker(allSentences)
@@ -89,14 +93,14 @@ with tf.Graph().as_default():
     validation_augment_fn = functools.partial(augment.augment_data, **validation_augment_config)
 
     train_dataset = augment.get_data_iterator(input_x,
-                                                 embed_fn=embed_config_fn,
+                                                 embed_fn=encode,
                                                  augment_fn=train_augment_fn,
                                                  batch_size=FLAGS.batch_size,
                                                  repeat_train_dataset=FLAGS.repeat_train_dataset) \
         .shuffle(buffer_size=FLAGS.shuffle_buffer_size)
 
     test_dataset = augment.get_data_iterator(input_x,
-                                             embed_fn=embed_config_fn,
+                                             embed_fn=encode,
                                              augment_fn=validation_augment_fn,
                                              batch_size=FLAGS.batch_size,
                                              repeat_train_dataset=FLAGS.repeat_train_dataset)
