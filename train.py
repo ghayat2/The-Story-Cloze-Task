@@ -16,8 +16,11 @@ import sys
 # PARAMETERS #
 # Data loading parameters
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data used for validation (default: 10%)")
+tf.flags.DEFINE_string("data_sentences_path", "PATH", "Path to sentences file")
+
 
 # Model parameters
+tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in training set (default: 5)")
 tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
 tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
 
@@ -55,6 +58,8 @@ for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr.upper(), value.value))
 print("")
 
+# Load sentences from numpy file, with ids but not embedded
+sentences = np.load(FLAGS.data_sentences_path) # [88k, sentence_length (5), vocab_size (30)]
 
 # sentence embeddings
 # sentences is the vector of size 5 with the vector of size 30 with word numbers, [batch_size, sentence_len, vocab_size]
@@ -67,7 +72,7 @@ def encode(sentences):
 
     return sentences
 
-allSentences = ...
+allSentences = sentences.squeeze(axis=1) # make continuous array
 randomPicker = RandomPicker(allSentences)
 
 
