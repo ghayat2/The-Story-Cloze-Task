@@ -57,7 +57,10 @@ print("")
 
 
 # sentence embeddings
-
+embed_config = {
+    'embedding_matrix': MATRIX
+}
+embed_config_fn = functools.partial(augment.augment_data, **embed_config)
 
 
 allSentences = ...
@@ -68,9 +71,8 @@ randomPicker = RandomPicker(allSentences)
 # MODEL AND TRAINING PROCEDURE DEFINITION #
 with tf.Graph().as_default():
 
-    # Placeholder tensor for input
-    input_x = tf.placeholder(tf.string, [None])
-    input_y = tf.placeholder(tf.string, [None])
+    # Placeholder tensor for input, which is just the sentences with ids
+    input_x = tf.placeholder(tf.int32, [None, FLAGS.sentence_length]) # [batch_size, sentence_length]
 
     """Iterator stuff"""
     # Initialize model
@@ -86,18 +88,18 @@ with tf.Graph().as_default():
     }
     validation_augment_fn = functools.partial(augment.augment_data, **validation_augment_config)
 
-    train_dataset = data_utils.get_data_iterator(input_x,
-                                                 input_y,
+    train_dataset = augment.get_data_iterator(input_x,
+                                                 embed_fn=embed_config_fn,
                                                  augment_fn=train_augment_fn,
                                                  batch_size=FLAGS.batch_size,
                                                  repeat_train_dataset=FLAGS.repeat_train_dataset) \
         .shuffle(buffer_size=FLAGS.shuffle_buffer_size)
 
-    test_dataset = data_utils.get_data_iterator(input_x,
-                                                input_y,
-                                                augment_fn=validation_augment_fn,
-                                                batch_size=FLAGS.batch_size,
-                                                repeat_train_dataset=FLAGS.repeat_train_dataset)
+    test_dataset = augment.get_data_iterator(input_x,
+                                             embed_fn=embed_config_fn,
+                                             augment_fn=validation_augment_fn,
+                                             batch_size=FLAGS.batch_size,
+                                             repeat_train_dataset=FLAGS.repeat_train_dataset)
 
     # Iterators on the training and validation dataset
     train_iterator = train_dataset.make_initializable_iterator()

@@ -17,6 +17,9 @@ class RandomPicker:
     def pick(self):
         return np.random.sample(self.dictionary)
 
+def encode_sentences(sentences, embedding_matrix):
+    # Encodes sentences into embedding matrix
+
 
 def split_sentences(sentences):
     # Split sentences into [context], ending
@@ -32,6 +35,7 @@ def augment_data(context, endings,
 
 
 def get_data_iterator(sentences,
+                      embed_fn=functools.partial(encode_sentences),
                         augment_fn=functools.partial(augment_data),
                         threads=5,
                         batch_size=1,
@@ -39,6 +43,7 @@ def get_data_iterator(sentences,
 
     # Create dataset from image and label paths
     dataset = tf.data.Dataset.from_tensor_slices(sentences) \
+        .map(embed_fn, num_parallel_calls=threads) \
         .map(split_sentences, num_parallel_calls=threads) \
         .map(augment_fn, num_parallel_calls=threads) \
         .batch(batch_size, drop_remainder=True) \
