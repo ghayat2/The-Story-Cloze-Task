@@ -83,12 +83,14 @@ with tf.Graph().as_default():
     handle = tf.placeholder(tf.string, shape=[])
 
     train_augment_config = {
-        'randomPicker': randomPicker
+        'randomPicker': randomPicker,
+        'encoding_fn': encode
     }
     train_augment_fn = functools.partial(augment.augment_data, **train_augment_config)
 
     validation_augment_config = {
-        'randomPicker': randomPicker
+        'randomPicker': randomPicker,
+        'encoding_fn': encode
     }
     validation_augment_fn = functools.partial(augment.augment_data, **validation_augment_config)
 

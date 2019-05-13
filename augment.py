@@ -23,12 +23,13 @@ def split_sentences(sentences):
     return sentences[0:CONTEXT_LENGTH], [sentences[CONTEXT_LENGTH]]
 
 def augment_data(context, endings,
-                 randomPicker = None): # Augment the data
+                 randomPicker = None,
+                 encoding_fn = None): # Augment the data
 
     if randomPicker is not None:
         randomSentence = randomPicker.pick()
-        # randomSentenceEncoded = # Encode this somehow
-        endings = [endings[0], randomSentence]
+        randomSentenceEncoded = encoding_fn(randomSentence)
+        endings = [endings[0], randomSentenceEncoded]
 
     return context, endings
 
