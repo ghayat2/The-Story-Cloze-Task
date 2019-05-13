@@ -1,5 +1,7 @@
 import data_utils
 from models.bidirectional_lstm import BiDirectional_LSTM
+import augment
+from augment import RandomPicker
 
 import tensorflow as tf
 import numpy as np
@@ -7,6 +9,7 @@ import os
 import time
 import datetime
 import matplotlib.pyplot as plt
+
 import functools
 import sys
 
@@ -15,6 +18,9 @@ import sys
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data used for validation (default: 10%)")
 
 # Model parameters
+tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
+tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
+
 
 # Augmenting parameters
 
@@ -50,11 +56,62 @@ for attr, value in sorted(FLAGS.__flags.items()):
 print("")
 
 
-# Load data into iterator
+# sentence embeddings
+
+
+
+allSentences = ...
+randomPicker = RandomPicker(allSentences)
+
 
 # Create sesions
 # MODEL AND TRAINING PROCEDURE DEFINITION #
 with tf.Graph().as_default():
+
+    # Placeholder tensor for input
+    input_x = tf.placeholder(tf.string, [None])
+    input_y = tf.placeholder(tf.string, [None])
+
+    """Iterator stuff"""
+    # Initialize model
+    handle = tf.placeholder(tf.string, shape=[])
+
+    train_augment_config = {
+        'randomPicker': randomPicker
+    }
+    train_augment_fn = functools.partial(augment.augment_data, **train_augment_config)
+
+    validation_augment_config = {
+        'randomPicker': randomPicker
+    }
+    validation_augment_fn = functools.partial(augment.augment_data, **validation_augment_config)
+
+    train_dataset = data_utils.get_data_iterator(input_x,
+                                                 input_y,
+                                                 augment_fn=train_augment_fn,
+                                                 batch_size=FLAGS.batch_size,
+                                                 repeat_train_dataset=FLAGS.repeat_train_dataset) \
+        .shuffle(buffer_size=FLAGS.shuffle_buffer_size)
+
+    test_dataset = data_utils.get_data_iterator(input_x,
+                                                input_y,
+                                                augment_fn=validation_augment_fn,
+                                                batch_size=FLAGS.batch_size,
+                                                repeat_train_dataset=FLAGS.repeat_train_dataset)
+
+    # Iterators on the training and validation dataset
+    train_iterator = train_dataset.make_initializable_iterator()
+    test_iterator = test_dataset.make_initializable_iterator()
+
+    iter = tf.data.Iterator.from_string_handle(
+        handle, train_dataset.output_types, train_dataset.output_shapes)
+
+    next_batch_context_x, next_batch_endings_y = iter.get_next()
+
+    next_batch_context_x.set_shape([FLAGS.batch_size, FLAGS.sentence_length, FLAGS.word_embedding_dimension])
+
+    train_init_op = iter.make_initializer(train_dataset, name='train_dataset')
+    test_init_op = iter.make_initializer(test_dataset, name='test_dataset')
 
     session_conf = tf.ConfigProto(
         allow_soft_placement=FLAGS.allow_soft_placement,
@@ -65,8 +122,9 @@ with tf.Graph().as_default():
     with sess.as_default():
 
         # Build execution graph
-        network = BiDirectional_LSTM
+        network = BiDirectional_LSTM(next_batch_context_x)
 
+        # Compare with next_batch_endings_y
         loss = tf.reduce_mean(
             # loss something
         )

@@ -2,5 +2,5 @@
 
 class BiDirectional_LSTM:
 
-    def __init__(self, name, in_data):
+    def __init__(self, context):
         print("Super awesome model")
