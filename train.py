@@ -16,10 +16,16 @@ import sys
 # PARAMETERS #
 # Data loading parameters
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data used for validation (default: 10%)")
+tf.flags.DEFINE_string("data_sentences_path", "PATH", "Path to sentences file")
+
 
 # Model parameters
+tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in training set (default: 5)")
 tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
 tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
+
+tf.flags.DEFINE_integer("hidden_layer_size", 100, "Size of hidden layer")
+tf.flags.DEFINE_integer("rnn_num", 2, "Number of RNNs")
 
 
 # Augmenting parameters
@@ -55,12 +61,17 @@ for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr.upper(), value.value))
 print("")
 
+# Load sentences from numpy file, with ids but not embedded
+sentences = np.load(FLAGS.data_sentences_path) # [88k, sentence_length (5), vocab_size (30)]
 
 # sentence embeddings
+# sentences is the vector of size 5 with the vector of size 30 with word numbers, [batch_size, sentence_len, vocab_size]
+# [
+#   [ 1, 3, 15, 151, .. , ],
+#   [ 1, 2 ], ... ]
+# ]
 
-
-
-allSentences = ...
+allSentences = sentences.squeeze(axis=1) # make continuous array
 randomPicker = RandomPicker(allSentences)
 
 
@@ -68,36 +79,33 @@ randomPicker = RandomPicker(allSentences)
 # MODEL AND TRAINING PROCEDURE DEFINITION #
 with tf.Graph().as_default():
 
-    # Placeholder tensor for input
-    input_x = tf.placeholder(tf.string, [None])
-    input_y = tf.placeholder(tf.string, [None])
+    # Placeholder tensor for input, which is just the sentences with ids
+    input_x = tf.placeholder(tf.int32, [None, FLAGS.sentence_length]) # [batch_size, sentence_length]
 
     """Iterator stuff"""
     # Initialize model
     handle = tf.placeholder(tf.string, shape=[])
 
     train_augment_config = {
-        'randomPicker': randomPicker
+        'randomPicker': randomPicker,
     }
     train_augment_fn = functools.partial(augment.augment_data, **train_augment_config)
 
     validation_augment_config = {
-        'randomPicker': randomPicker
+        'randomPicker': randomPicker,
     }
     validation_augment_fn = functools.partial(augment.augment_data, **validation_augment_config)
 
-    train_dataset = data_utils.get_data_iterator(input_x,
-                                                 input_y,
+    train_dataset = augment.get_data_iterator(input_x,
                                                  augment_fn=train_augment_fn,
                                                  batch_size=FLAGS.batch_size,
                                                  repeat_train_dataset=FLAGS.repeat_train_dataset) \
         .shuffle(buffer_size=FLAGS.shuffle_buffer_size)
 
-    test_dataset = data_utils.get_data_iterator(input_x,
-                                                input_y,
-                                                augment_fn=validation_augment_fn,
-                                                batch_size=FLAGS.batch_size,
-                                                repeat_train_dataset=FLAGS.repeat_train_dataset)
+    test_dataset = augment.get_data_iterator(input_x,
+                                             augment_fn=validation_augment_fn,
+                                             batch_size=FLAGS.batch_size,
+                                             repeat_train_dataset=FLAGS.repeat_train_dataset)
 
     # Iterators on the training and validation dataset
     train_iterator = train_dataset.make_initializable_iterator()

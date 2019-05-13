@@ -26,7 +26,8 @@ def augment_data(context, endings,
                  randomPicker = None): # Augment the data
 
     if randomPicker is not None:
-        endings = [endings[0], randomPicker.pick()]
+        randomSentence = randomPicker.pick()
+        endings = [endings[0], randomSentence]
 
     return context, endings
 
