@@ -1,5 +1,7 @@
 import data_utils
 from models.bidirectional_lstm import BiDirectional_LSTM
+import augment
+from augment import RandomPicker
 
 import tensorflow as tf
 import numpy as np
@@ -7,14 +9,24 @@ import os
 import time
 import datetime
 import matplotlib.pyplot as plt
+
 import functools
 import sys
 
 # PARAMETERS #
 # Data loading parameters
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data used for validation (default: 10%)")
+tf.flags.DEFINE_string("data_sentences_path", "PATH", "Path to sentences file")
+
 
 # Model parameters
+tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in training set (default: 5)")
+tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
+tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
+
+tf.flags.DEFINE_integer("hidden_layer_size", 100, "Size of hidden layer")
+tf.flags.DEFINE_integer("rnn_num", 2, "Number of RNNs")
+
 
 # Augmenting parameters
 
@@ -49,12 +61,65 @@ for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr.upper(), value.value))
 print("")
 
+# Load sentences from numpy file, with ids but not embedded
+sentences = np.load(FLAGS.data_sentences_path) # [88k, sentence_length (5), vocab_size (30)]
 
-# Load data into iterator
+# sentence embeddings
+# sentences is the vector of size 5 with the vector of size 30 with word numbers, [batch_size, sentence_len, vocab_size]
+# [
+#   [ 1, 3, 15, 151, .. , ],
+#   [ 1, 2 ], ... ]
+# ]
+
+allSentences = sentences.squeeze(axis=1) # make continuous array
+randomPicker = RandomPicker(allSentences)
+
 
 # Create sesions
 # MODEL AND TRAINING PROCEDURE DEFINITION #
 with tf.Graph().as_default():
+
+    # Placeholder tensor for input, which is just the sentences with ids
+    input_x = tf.placeholder(tf.int32, [None, FLAGS.sentence_length]) # [batch_size, sentence_length]
+
+    """Iterator stuff"""
+    # Initialize model
+    handle = tf.placeholder(tf.string, shape=[])
+
+    train_augment_config = {
+        'randomPicker': randomPicker,
+    }
+    train_augment_fn = functools.partial(augment.augment_data, **train_augment_config)
+
+    validation_augment_config = {
+        'randomPicker': randomPicker,
+    }
+    validation_augment_fn = functools.partial(augment.augment_data, **validation_augment_config)
+
+    train_dataset = augment.get_data_iterator(input_x,
+                                                 augment_fn=train_augment_fn,
+                                                 batch_size=FLAGS.batch_size,
+                                                 repeat_train_dataset=FLAGS.repeat_train_dataset) \
+        .shuffle(buffer_size=FLAGS.shuffle_buffer_size)
+
+    test_dataset = augment.get_data_iterator(input_x,
+                                             augment_fn=validation_augment_fn,
+                                             batch_size=FLAGS.batch_size,
+                                             repeat_train_dataset=FLAGS.repeat_train_dataset)
+
+    # Iterators on the training and validation dataset
+    train_iterator = train_dataset.make_initializable_iterator()
+    test_iterator = test_dataset.make_initializable_iterator()
+
+    iter = tf.data.Iterator.from_string_handle(
+        handle, train_dataset.output_types, train_dataset.output_shapes)
+
+    next_batch_context_x, next_batch_endings_y = iter.get_next()
+
+    next_batch_context_x.set_shape([FLAGS.batch_size, FLAGS.sentence_length, FLAGS.word_embedding_dimension])
+
+    train_init_op = iter.make_initializer(train_dataset, name='train_dataset')
+    test_init_op = iter.make_initializer(test_dataset, name='test_dataset')
 
     session_conf = tf.ConfigProto(
         allow_soft_placement=FLAGS.allow_soft_placement,
@@ -65,8 +130,9 @@ with tf.Graph().as_default():
     with sess.as_default():
 
         # Build execution graph
-        network = BiDirectional_LSTM
+        network = BiDirectional_LSTM(next_batch_context_x)
 
+        # Compare with next_batch_endings_y
         loss = tf.reduce_mean(
             # loss something
         )
