@@ -24,6 +24,9 @@ tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in traini
 tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
 tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
 
+tf.flags.DEFINE_integer("hidden_layer_size", 100, "Size of hidden layer")
+tf.flags.DEFINE_integer("rnn_num", 2, "Number of RNNs")
+
 
 # Augmenting parameters
 
@@ -67,10 +70,6 @@ sentences = np.load(FLAGS.data_sentences_path) # [88k, sentence_length (5), voca
 #   [ 1, 3, 15, 151, .. , ],
 #   [ 1, 2 ], ... ]
 # ]
-def encode(sentences):
-    # dummy encode method
-
-    return sentences
 
 allSentences = sentences.squeeze(axis=1) # make continuous array
 randomPicker = RandomPicker(allSentences)
@@ -89,25 +88,21 @@ with tf.Graph().as_default():
 
     train_augment_config = {
         'randomPicker': randomPicker,
-        'encoding_fn': encode
     }
     train_augment_fn = functools.partial(augment.augment_data, **train_augment_config)
 
     validation_augment_config = {
         'randomPicker': randomPicker,
-        'encoding_fn': encode
     }
     validation_augment_fn = functools.partial(augment.augment_data, **validation_augment_config)
 
     train_dataset = augment.get_data_iterator(input_x,
-                                                 embed_fn=encode,
                                                  augment_fn=train_augment_fn,
                                                  batch_size=FLAGS.batch_size,
                                                  repeat_train_dataset=FLAGS.repeat_train_dataset) \
         .shuffle(buffer_size=FLAGS.shuffle_buffer_size)
 
     test_dataset = augment.get_data_iterator(input_x,
-                                             embed_fn=encode,
                                              augment_fn=validation_augment_fn,
                                              batch_size=FLAGS.batch_size,
                                              repeat_train_dataset=FLAGS.repeat_train_dataset)
