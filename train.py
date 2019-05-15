@@ -23,9 +23,14 @@ tf.flags.DEFINE_string("data_sentences_path", "PATH", "Path to sentences file")
 tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in training set (default: 5)")
 tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
 tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
+tf.flags.DEFINE_integer("num_context_sentences", 4, "Number of context sentences")
+tf.flags.DEFINE_integer("classes", 2, "Number of output classes")
+
 
 tf.flags.DEFINE_integer("hidden_layer_size", 100, "Size of hidden layer")
 tf.flags.DEFINE_integer("rnn_num", 2, "Number of RNNs")
+tf.flags.DEFINE_string("rnn_cell", "LSTM", "Cell type.")
+tf.flags.DEFINE_integer("rnn_cell_size", 2, "RNN cell size")
 
 
 # Augmenting parameters
@@ -132,10 +137,22 @@ with tf.Graph().as_default():
         # Build execution graph
         network = BiDirectional_LSTM(next_batch_context_x)
 
+        output = network.build_model()
+
         # Compare with next_batch_endings_y
         loss = tf.reduce_mean(
             # loss something
+            tf.losses.sparse_softmax_cross_entropy(next_batch_endings_y, output)
         )
+
+        predictions = tf.argmax(
+            tf.sparse_softmax(output), axis=1
+        )
+        accuracy = tf.equal(output, next_batch_endings_y)
+
+        """Initialize iterators"""
+        train_handle = sess.run(train_iterator.string_handle())
+        test_handle = sess.run(test_iterator.string_handle())
 
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
@@ -152,15 +169,14 @@ with tf.Graph().as_default():
         # Summaries for loss and accuracy
         loss_summary = tf.summary.scalar("loss", loss)
         acc_summary = tf.summary.scalar("accuracy", accuracy)
-        f1_summary = tf.summary.scalar("f1", f1)
 
         # Train Summaries
-        train_summary_op = tf.summary.merge([loss_summary, acc_summary, f1_summary])
+        train_summary_op = tf.summary.merge([loss_summary, acc_summary])
         train_summary_dir = os.path.join(out_dir, "summaries", "train")
         train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
 
         # Dev summaries
-        dev_summary_op = tf.summary.merge([loss_summary, acc_summary, f1_summary])
+        dev_summary_op = tf.summary.merge([loss_summary, acc_summary])
         dev_summary_dir = os.path.join(out_dir, "summaries", "dev")
         dev_summary_writer = tf.summary.FileWriter(dev_summary_dir, sess.graph)
 
@@ -181,3 +197,49 @@ with tf.Graph().as_default():
         sess.run(init)
         sess.graph.finalize()
 
+        # Define training and dev steps (batch)
+        def train_step(loss, accuracy, current_step):
+            """
+            A single training step
+            """
+            feed_dict = {handle: train_handle}
+            fetches = [train_op, global_step, train_summary_op, loss, accuracy]
+            _, step, summaries, loss, accuracy = sess.run(fetches, feed_dict)
+
+            time_str = datetime.datetime.now().isoformat()
+            print("{}: step {}, loss {:g}, acc {:g}".format(
+                time_str, step, loss, accuracy))
+            train_summary_writer.add_summary(summaries, step)
+
+        def dev_step(loss, accuracy, writer=None):
+            """
+            Evaluates model on a dev set
+            """
+            feed_dict = {
+                handle: test_handle
+            }
+            fetches = [global_step, dev_summary_op, loss, accuracy]
+            step, summaries, loss, accuracy = sess.run(fetches, feed_dict)
+            time_str = datetime.datetime.now().isoformat()
+            print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
+            if writer:
+                writer.add_summary(summaries, step)
+
+        """ Training loop - default option is that the model trains until an OutOfRange exception """
+        current_step = 0
+        while True:
+            try:
+                train_step(loss, accuracy, current_step)
+                current_step = tf.train.global_step(sess, global_step)
+                if current_step % FLAGS.evaluate_every == 0:
+                    print("\nEvaluation:")
+                    dev_step(loss, accuracy, writer=dev_summary_writer)
+                    print("")
+                if current_step % FLAGS.checkpoint_every == 0:
+                    path = saver.save(sess, checkpoint_prefix, global_step=current_step)
+                    print("Saved model checkpoint to {}\n".format(path))
+            except tf.errors.OutOfRangeError:
+                print("Iterator of range! Terminating")
+                path = saver.save(sess, checkpoint_prefix, global_step=current_step)
+                print("Saved model checkpoint to {}\n".format(path))
+                break
