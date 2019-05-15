@@ -41,11 +41,12 @@ class SentenceEmbedder():
                 break
         return embeddings
 
-embedder = SentenceEmbedder()
-s1 = embedder.encode(["My name is not what you think"])
-s2 = embedder.encode(["My username is different than what you think"])
-s4 = embedder.encode(["Beach or horses, give or take, life is full of extremes."])
-s3 = embedder.encode(["That is a totally unrelated sentence"])
-print("Similarity between s1 and s2: {}".format(embedder.similarity(s1, s2)))
-print("Similarity between s1 and s3: {}".format(embedder.similarity(s1, s3)))
-print("Similarity between s1 and s4: {}".format(embedder.similarity(s1, s4)))
+def test():
+    embedder = SentenceEmbedder()
+    s1 = embedder.encode(["My name is not what you think"])
+    s2 = embedder.encode(["My username is different than what you think"])
+    s4 = embedder.encode(["Beach or horses, give or take, life is full of extremes."])
+    s3 = embedder.encode(["That is a totally unrelated sentence"])
+    print("Similarity between s1 and s2: {}".format(embedder.similarity(s1, s2)))
+    print("Similarity between s1 and s3: {}".format(embedder.similarity(s1, s3)))
+    print("Similarity between s1 and s4: {}".format(embedder.similarity(s1, s4)))
