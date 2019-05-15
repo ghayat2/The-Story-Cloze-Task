@@ -1,7 +1,7 @@
-import data_utils
+import data_utils as d
 from models.bidirectional_lstm import BiDirectional_LSTM
 import augment
-from augment import RandomPicker
+from genreate_random import RandomPicker
 
 import tensorflow as tf
 import numpy as np
@@ -77,7 +77,7 @@ sentences = np.load(FLAGS.data_sentences_path) # [88k, sentence_length (5), voca
 # ]
 
 allSentences = sentences.squeeze(axis=1) # make continuous array
-randomPicker = RandomPicker(allSentences)
+randomPicker = RandomPicker(d.endings(allSentences))
 
 
 # Create sesions

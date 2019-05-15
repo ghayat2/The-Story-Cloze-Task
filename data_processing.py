@@ -2,6 +2,8 @@
 import sys
 import numpy as np
 from collections import Counter
+import codecs
+import csv
 
 
 class default_dict(dict):
@@ -17,7 +19,7 @@ class default_dict(dict):
     
 """ Selecting file to encode based on paramaters fed to the program"""
 if len(sys.argv) < 2:
-    filename = "train_stories"
+    filename = "train_stories.csv"
 else:
     filename = sys.argv[1]
 
@@ -27,28 +29,32 @@ if len(sys.argv) < 3:
 else:
     vocabname = sys.argv[2]
 
-if filename != "train_stories" and vocabname == None:
+if filename != "train_stories.csv" and vocabname == None:
     print("You probably  did not intend to generate a new vocabulary for a file other than train_stories file. Exiting")
     print("Did you mean to specify: processed/sentences.train_vocab.npy ?")
     exit(1)
 
 #generates an array of the lines present in the file
-f = open("data/" + filename, "r")
-lines = f.readlines()
-f.close()
+file = open("data/" + filename, "r")
+lines = file.readlines()
+del lines[0]
+file.close()
 
 #computes a dictionary with the 20K most frequent words in the file
 counter = Counter()
 for line in lines:
-    words = line.strip().split(' ')
-    counter.update(words)
+    sentences = line.strip().split(',')
+    del sentences[0]
+    for sentence in sentences:
+        words = sentence.strip().split(' ')
+        counter.update(words)
     
 if vocabname is not None:
     print(f"Loading vocab from data/{vocabname}")
     vocabfile = dict(np.load("data/processed/" + vocabname).item().items())
     vocab = default_dict(vocabfile["<unk>"], vocabfile)
 else:
-    vocab = {"<unk>" : 0, "<bos>": 1, "<eos>": 2, "<pad>": 3}
+    vocab = {",": -1, "<unk>" : 0, "<bos>": 1, "<eos>": 2, "<pad>": 3}
     id = 4
     for w, _ in counter.most_common(20000 - 4):
         vocab.update({w:id})
@@ -59,23 +65,40 @@ else:
 
 #Encodes each word as its id in the training data
 data = []
-for line in lines:
-    words = line.strip().split(" ")
+
+with codecs.open("data/"+ filename, encoding='utf-8') as f:
+    reader = csv.reader(f, delimiter=',')
+    header = next(reader)
     
-    if len(words) <= 30 - 2: #Ignore sentences longer than 30 words (the 2 is to take symbols into account <bos> <eos>)
-        encoded_words = []
-        for w in words:
-            encoded_words.append(vocab[w])
-            
-        encoded_words.insert(0, vocab["<bos>"]) #Adding symbol <bos>
-        encoded_words.append(vocab["<eos>"]) #Adding symbol <eos>
+    for sentences in reader: 
+        """ Deleting the story id and title"""
+        del sentences[0]
+        del sentences[1]
         
-        #pads symbol <pad> to have encoded sentences of the same length
-        for i in range(30 - len(encoded_words)):
-            encoded_words.append(vocab["<pad>"])
+        encoded_words = []
+        for i, sentence in enumerate(sentences):
+            
+            words = sentence.strip().split(' ')
+            words.insert(0, "<bos>")
+            words.append("<eos>")
+            
+            if len(words) <= 30 - 2: #Ignore sentences longer than 30 words (the 2 is to take symbols into account <bos> <eos>)
+                for w in words:
+                    encoded_words.append(vocab[w])
+                            
+                #pads symbol <pad> to have encoded sentences of the same length
+                for j in range(30 - len(words)):
+                    encoded_words.append(vocab["<pad>"])
+                    
+                if i != len(sentences)-1:
+                    encoded_words.append(vocab[","])
+              
+        assert len(encoded_words) == 5*31 - 1
         
         data.append(encoded_words)
     
+    
+
 data = np.array(data, dtype=int)
 np.save("data/processed/" + filename + "_vocab", dict(vocab))
 np.save("data/processed/" + filename, data)
