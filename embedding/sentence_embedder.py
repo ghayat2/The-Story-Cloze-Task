@@ -1,6 +1,6 @@
 import pandas
 
-import embedding.skipthoughts as skipthoughts
+import skipthoughts as skipthoughts
 from definitions import ROOT_DIR
 
 import numpy as np
