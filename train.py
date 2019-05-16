@@ -21,6 +21,7 @@ tf.flags.DEFINE_string("data_sentences_path", "./data/processed/train_stories.cs
 tf.flags.DEFINE_string("data_sentences_vocab_path", "./data/processed/train_stories.csv_vocab.npy", "Path to sentences vocab file")
 tf.flags.DEFINE_string("data_sentences_eval_path", "./data/processed/eval_stories.csv.npy", "Path to eval sentences file")
 tf.flags.DEFINE_string("data_sentences_eval_labels_path", "./data/processed/eval_stories.csv_labels.npy", "Path to eval sentences file")
+tf.flags.DEFINE_bool("use_train_set", True, "Whether to use train set, use eval set for training otherwise")
 
 
 # Model parameters
@@ -136,14 +137,16 @@ with tf.Graph().as_default():
     }
     validation_augment_fn = functools.partial(generate_random.augment_data, **validation_augment_config)
 
-    train_dataset = generate_random.get_data_iterator(input_x,
-                                                 augment_fn=train_augment_fn,
+    if FLAGS.use_train_set:
+        train_dataset = generate_random.get_data_iterator(input_x,
+                                                     augment_fn=train_augment_fn,
+                                                     batch_size=FLAGS.batch_size,
+                                                     repeat_train_dataset=FLAGS.repeat_train_dataset)
+    else:
+        train_dataset = generate_random.get_eval_iterator(input_x,
+                                                         input_y,
                                                  batch_size=FLAGS.batch_size,
-                                                 repeat_train_dataset=FLAGS.repeat_train_dataset)
-    # train_dataset = generate_random.get_eval_iterator(input_x,
-    #                                                  input_y,
-    #                                          batch_size=FLAGS.batch_size,
-    #                                          repeat_eval_dataset=FLAGS.repeat_train_dataset)
+                                                 repeat_eval_dataset=FLAGS.repeat_train_dataset)
 
     test_dataset = generate_random.get_eval_iterator(input_x,
                                                      input_y,
@@ -200,8 +203,10 @@ with tf.Graph().as_default():
         train_handle = sess.run(train_iterator.string_handle())
         test_handle = sess.run(test_iterator.string_handle())
 
-        sess.run(train_iterator.initializer, feed_dict={input_x: sentences})
-        # sess.run(train_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
+        if FLAGS.use_train_set:
+            sess.run(train_iterator.initializer, feed_dict={input_x: sentences})
+        else:
+            sess.run(train_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
         sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
 
 
@@ -213,7 +218,7 @@ with tf.Graph().as_default():
         # TODO: Define a training operation, including the global_step
         # train_op = optimizer.minimize(loss, global_step=global_step)
 
-        gradients = optimizer.compute_gradients(losses)
+        gradients = optimizer.compute_gradients(loss)
         clipped_gradients = [(tf.clip_by_norm(gradient, FLAGS.grad_clip), var) for gradient, var in gradients]
         train_op = optimizer.apply_gradients(clipped_gradients, global_step=global_step)
 
@@ -223,7 +228,7 @@ with tf.Graph().as_default():
         print("Writing to {}\n".format(out_dir))
 
         # Summaries for loss and accuracy
-        loss_summary = tf.summary.scalar("loss", losses)
+        loss_summary = tf.summary.scalar("loss", loss)
         acc_summary = tf.summary.scalar("accuracy", accuracy)
 
         # Train Summaries
@@ -289,11 +294,11 @@ with tf.Graph().as_default():
         current_step = 0
         while True:
             try:
-                train_step(losses, accuracy, current_step)
+                train_step(loss, accuracy, current_step)
                 current_step = tf.train.global_step(sess, global_step)
                 if current_step % FLAGS.evaluate_every == 0:
                     print("\nEvaluation:")
-                    dev_step(losses, accuracy, writer=dev_summary_writer)
+                    dev_step(loss, accuracy, writer=dev_summary_writer)
                     print("")
                 if current_step % FLAGS.checkpoint_every == 0:
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
