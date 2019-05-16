@@ -7,7 +7,7 @@ import csv
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 import itertools
-
+import pickle
 
 class default_dict(dict):
     """ Dictionary that returns a default value when looking for a missing key """
@@ -89,7 +89,6 @@ data = np.array(sequences, dtype=int)
 np.save("data/processed/" + filename + "_vocab", dict(itertools.islice(word_index.items(), MAX_NB_WORDS)))
 np.save("data/processed/" + filename, data)
 
-
-
-
+with open('data/tokenizer.pickle', 'wb') as handle:
+    pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
