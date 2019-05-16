@@ -22,8 +22,8 @@ class BiDirectional_LSTM:
                                                 dtype=tf.float32,
                                                 trainable=False)
 
-        # data_utils.load_embedding(self.session, self.vocab, self.embedding_matrix, FLAGS.path_embeddings, FLAGS.word_embedding_dimension,
-        #                           FLAGS.vocab_size)
+        data_utils.load_embedding(self.session, self.vocab, self.embedding_matrix, FLAGS.path_embeddings, FLAGS.word_embedding_dimension,
+                                  FLAGS.vocab_size)
 
         embedded_words = tf.nn.embedding_lookup(self.embedding_matrix,
                                                      self.input)  # DIM [batch_size, sentence_len, embedding_dim]
@@ -56,27 +56,6 @@ class BiDirectional_LSTM:
             return tf.nn.rnn_cell.BasicRNNCell(rnn_cell_dim, name=name)
         else:
             raise ValueError(f"Unknown rnn_cell {FLAGS.rnn_cell}.")
-
-    def _story_embeddings(self, sentence_wordword_states: tf.Tensor) -> Tuple[tf.Tensor, Tuple[tf.Tensor, tf.Tensor]]:
-        effective_cell_dim = FLAGS.rnn_cell_size * 2
-        if FLAGS.rnn_cell == "LSTM":
-            effective_cell_dim *= 2 # LSTM has short and long output states
-
-            # TODO: look into this when we run
-        states_unflat = tf.reshape(sentence_wordword_states,
-                                   (-1, FLAGS.num_context_sentences + FLAGS.classes, effective_cell_dim))
-        print("states_unflat", states_unflat.get_shape())
-        states_sentences = states_unflat[:, :FLAGS.num_context_sentences, :]
-        states_endings = states_unflat[:, -FLAGS.classes:, :]
-        print("states separate", states_sentences.get_shape(), states_endings.get_shape())
-
-        sentence_state = tf.layers.flatten(states_sentences[:, -1, :])  # last sentence
-        print("sentence_state", sentence_state.get_shape())
-        ending1_state = tf.layers.flatten(states_endings[:, 0, :])
-        print("ending1_state", ending1_state.get_shape())
-        ending2_state = tf.layers.flatten(states_endings[:, 1, :])
-        print("ending2_state", ending1_state.get_shape())
-        return sentence_state, (ending1_state, ending2_state)
 
     def _sentence_rnn(self, per_sentence_states: tf.Tensor) -> tf.Tensor:
         assert len(per_sentence_states.get_shape()) == 3
@@ -134,6 +113,7 @@ class BiDirectional_LSTM:
 
         with tf.name_scope("eval_predictions"):
             endings = tf.concat([self.ending1_output, self.ending2_output], axis=1)
+            self.sanity_endings = endings
             print("Ending", endings)
             eval_predictions = tf.to_int32(tf.argmax(endings, axis=1))
 

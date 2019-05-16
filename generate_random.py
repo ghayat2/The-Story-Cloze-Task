@@ -33,6 +33,7 @@ def augment_data(context, endings,
     randomized_endings, labels = randomize_labels(allEndings)
 
     print("Randomized endings", randomized_endings)
+    print("labels", labels)
 
     return tf.concat([context, randomized_endings], axis=0), labels
 
@@ -41,8 +42,9 @@ def randomize_labels(sentences):
     classes = FLAGS.classes
     indexes = tf.range(classes, dtype=tf.int32)
     shuffled_indexes = tf.random.shuffle(indexes)
-    truth = tf.one_hot(shuffled_indexes[0], classes, dtype=tf.int32)
-    return tf.gather(sentences, shuffled_indexes), truth
+    index_of_zero = tf.cast(tf.argmin(shuffled_indexes), dtype=tf.int32)
+    return tf.gather(sentences, shuffled_indexes), index_of_zero
+    # return sentences, 0
 
 def get_data_iterator(sentences,
                         augment_fn=functools.partial(augment_data),
@@ -55,6 +57,7 @@ def get_data_iterator(sentences,
         .map(d.split_sentences, num_parallel_calls=threads) \
         .map(augment_fn, num_parallel_calls=threads) \
         .batch(batch_size, drop_remainder=True) \
-        .repeat(repeat_train_dataset)
+        .repeat(repeat_train_dataset) \
+        .shuffle(buffer_size=50)
 
     return dataset

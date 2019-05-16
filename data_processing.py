@@ -4,6 +4,8 @@ import numpy as np
 from collections import Counter
 import codecs
 import csv
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
 
 
 class default_dict(dict):
@@ -35,75 +37,54 @@ if filename != "train_stories.csv" and vocabname == None:
     exit(1)
 
 #generates an array of the lines present in the file
-file = open("data/" + filename, "r")
-lines = file.readlines()
-del lines[0]
-file.close()
-
-#computes a dictionary with the 20K most frequent words in the file
-counter = Counter()
-for line in lines:
-    sentences = line.strip().split(',')
-    del sentences[0]
-    for sentence in sentences:
-        words = sentence.strip().split(' ')
-        counter.update(words)
-    
-if vocabname is not None:
-    print(f"Loading vocab from data/{vocabname}")
-    vocabfile = dict(np.load("data/processed/" + vocabname).item().items())
-    vocab = default_dict(vocabfile["<unk>"], vocabfile)
-else:
-    vocab = {",": -1, "<unk>" : 0, "<bos>": 1, "<eos>": 2, "<pad>": 3}
-    id = 4
-    for w, _ in counter.most_common(20000 - 4):
-        vocab.update({w:id})
-        id += 1
-        
-    #The words that are not present in the vocab should be encodded as the symbol <unk>
-    vocab = default_dict(vocab["<unk>"], vocab)
-
-#Encodes each word as its id in the training data
-data = []
-
+texts = []
 with codecs.open("data/"+ filename, encoding='utf-8') as f:
     reader = csv.reader(f, delimiter=',')
     header = next(reader)
-    
-    for sentences in reader: 
-        """ Deleting the story id and title"""
-        del sentences[0]
-        del sentences[1]
-        
-        encoded_words = []
-        for i, sentence in enumerate(sentences):
-            
-            words = sentence.strip().split(' ')
-            words.insert(0, "<bos>")
-            words.append("<eos>")
+    for values in reader:
+        texts.append(values[2:])
 
-            current_sentence_encoded = []
-            
-            if len(words) <= 30 - 2: #Ignore sentences longer than 30 words (the 2 is to take symbols into account <bos> <eos>)
-                for w in words:
-                    current_sentence_encoded.append(vocab[w])
-                            
-                #pads symbol <pad> to have encoded sentences of the same length
-                for j in range(30 - len(words)):
-                    current_sentence_encoded.append(vocab["<pad>"])
+MAX_NB_WORDS = 20000
+MAX_SEQUENCE_LENGTH = 30
 
-            encoded_words.append(current_sentence_encoded)
-              
-            assert len(current_sentence_encoded) == 30
+flattened = [item for sublist in texts for item in sublist]
 
-        assert len(encoded_words) == 5
-        
-        data.append(encoded_words)
-    
-    
+tokenizer = Tokenizer(MAX_NB_WORDS, oov_token='<unk>')
+tokenizer.fit_on_texts(flattened)
+word_index = tokenizer.word_index #the dict values start from 1 so this is fine with zeropadding
+index2word = {v: k for k, v in word_index.items()}
+print('Found %s unique tokens' % len(word_index))
+sequences = []
+for story in texts:
+    # print(story)
+    sequences.append(
+        # tokenizer.texts_to_sequences(story)
+        pad_sequences(
+            tokenizer.texts_to_sequences(story), maxlen=MAX_SEQUENCE_LENGTH, padding='post'
+        )
+    )
 
-data = np.array(data, dtype=int)
-np.save("data/processed/" + filename + "_vocab", dict(vocab))
+# data_1 = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
+
+print(word_index)
+
+# print(sequences[0:4])
+# if vocabname is not None:
+#     print(f"Loading vocab from data/{vocabname}")
+#     vocabfile = dict(np.load("data/processed/" + vocabname).item().items())
+#     vocab = default_dict(vocabfile["<unk>"], vocabfile)
+# else:
+#     vocab = {",": -1, "<unk>" : 0, "<bos>": 1, "<eos>": 2, "<pad>": 3}
+#     id = 4
+#     for w, _ in counter.most_common(20000 - 4):
+#         vocab.update({w:id})
+#         id += 1
+#
+#     #The words that are not present in the vocab should be encodded as the symbol <unk>
+#     vocab = default_dict(vocab["<unk>"], vocab)
+
+data = np.array(sequences, dtype=int)
+np.save("data/processed/" + filename + "_vocab", dict(word_index))
 np.save("data/processed/" + filename, data)
 
 
