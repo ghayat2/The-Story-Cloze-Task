@@ -81,19 +81,22 @@ with codecs.open("data/"+ filename, encoding='utf-8') as f:
             words = sentence.strip().split(' ')
             words.insert(0, "<bos>")
             words.append("<eos>")
+
+            current_sentence_encoded = []
             
             if len(words) <= 30 - 2: #Ignore sentences longer than 30 words (the 2 is to take symbols into account <bos> <eos>)
                 for w in words:
-                    encoded_words.append(vocab[w])
+                    current_sentence_encoded.append(vocab[w])
                             
                 #pads symbol <pad> to have encoded sentences of the same length
                 for j in range(30 - len(words)):
-                    encoded_words.append(vocab["<pad>"])
-                    
-                if i != len(sentences)-1:
-                    encoded_words.append(vocab[","])
+                    current_sentence_encoded.append(vocab["<pad>"])
+
+            encoded_words.append(current_sentence_encoded)
               
-        assert len(encoded_words) == 5*31 - 1
+            assert len(current_sentence_encoded) == 30
+
+        assert len(encoded_words) == 5
         
         data.append(encoded_words)
     

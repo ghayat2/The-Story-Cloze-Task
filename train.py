@@ -1,7 +1,7 @@
 import data_utils as d
 from models.bidirectional_lstm import BiDirectional_LSTM
-import augment
-from genreate_random import RandomPicker
+from generate_random import RandomPicker
+import generate_random
 
 import tensorflow as tf
 import numpy as np
@@ -16,7 +16,8 @@ import sys
 # PARAMETERS #
 # Data loading parameters
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data used for validation (default: 10%)")
-tf.flags.DEFINE_string("data_sentences_path", "PATH", "Path to sentences file")
+tf.flags.DEFINE_string("data_sentences_path", "./data/processed/train_stories.csv.npy", "Path to sentences file")
+tf.flags.DEFINE_string("data_sentences_vocab_path", "./data/processed/train_stories.csv_vocab.npy", "Path to sentences vocab file")
 
 
 # Model parameters
@@ -26,11 +27,15 @@ tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimensi
 tf.flags.DEFINE_integer("num_context_sentences", 4, "Number of context sentences")
 tf.flags.DEFINE_integer("classes", 2, "Number of output classes")
 
+tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
+tf.flags.DEFINE_string("path_embeddings", "data/wordembeddings-dim100.word2vec", "Path to the word2vec embeddings")
+
+
 
 tf.flags.DEFINE_integer("hidden_layer_size", 100, "Size of hidden layer")
 tf.flags.DEFINE_integer("rnn_num", 2, "Number of RNNs")
 tf.flags.DEFINE_string("rnn_cell", "LSTM", "Cell type.")
-tf.flags.DEFINE_integer("rnn_cell_size", 2, "RNN cell size")
+tf.flags.DEFINE_integer("rnn_cell_size", 1000, "RNN cell size")
 
 
 # Augmenting parameters
@@ -40,11 +45,12 @@ tf.flags.DEFINE_integer("rnn_cell_size", 2, "RNN cell size")
 tf.flags.DEFINE_float("learning_rate", 0.001, "Learning rate (default: 0.001)")
 tf.flags.DEFINE_integer("repeat_train_dataset", 5000, "Number of times to repeat the dataset")
 tf.flags.DEFINE_integer("shuffle_buffer_size", 5, "Buffer size for shuffling")
-tf.flags.DEFINE_integer("batch_size", 4, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("batch_size", 32, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 500, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
+tf.flags.DEFINE_float("grad_clip", 10, "Gradient clip")
 
 # Tensorflow Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -67,7 +73,13 @@ for attr, value in sorted(FLAGS.__flags.items()):
 print("")
 
 # Load sentences from numpy file, with ids but not embedded
-sentences = np.load(FLAGS.data_sentences_path) # [88k, sentence_length (5), vocab_size (30)]
+sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, sentence_length (5), vocab_size (30)]
+
+# sentences = sentences[:10, :, :]
+
+vocab = np.load(FLAGS.data_sentences_vocab_path)  # vocab contains [symbol: id]
+vocabLookup = dict((v,k) for k,v in vocab.item().items()) # flip our vocab dict so we can easy lookup [id: symbol]
+
 
 # sentence embeddings
 # sentences is the vector of size 5 with the vector of size 30 with word numbers, [batch_size, sentence_len, vocab_size]
@@ -76,16 +88,17 @@ sentences = np.load(FLAGS.data_sentences_path) # [88k, sentence_length (5), voca
 #   [ 1, 2 ], ... ]
 # ]
 
-allSentences = sentences.squeeze(axis=1) # make continuous array
-randomPicker = RandomPicker(d.endings(allSentences))
-
+# allSentences = sentences.squeeze(axis=1) # make continuous array
 
 # Create sesions
 # MODEL AND TRAINING PROCEDURE DEFINITION #
 with tf.Graph().as_default():
 
+    allSentences = tf.constant(np.squeeze(d.endings(sentences), axis=1))
+    randomPicker = RandomPicker(allSentences, len(sentences))
+
     # Placeholder tensor for input, which is just the sentences with ids
-    input_x = tf.placeholder(tf.int32, [None, FLAGS.sentence_length]) # [batch_size, sentence_length]
+    input_x = tf.placeholder(tf.int32, [None, FLAGS.num_sentences_train, FLAGS.sentence_length]) # [batch_size, sentence_length]
 
     """Iterator stuff"""
     # Initialize model
@@ -94,20 +107,20 @@ with tf.Graph().as_default():
     train_augment_config = {
         'randomPicker': randomPicker,
     }
-    train_augment_fn = functools.partial(augment.augment_data, **train_augment_config)
+    train_augment_fn = functools.partial(generate_random.augment_data, **train_augment_config)
 
     validation_augment_config = {
         'randomPicker': randomPicker,
     }
-    validation_augment_fn = functools.partial(augment.augment_data, **validation_augment_config)
+    validation_augment_fn = functools.partial(generate_random.augment_data, **validation_augment_config)
 
-    train_dataset = augment.get_data_iterator(input_x,
+    train_dataset = generate_random.get_data_iterator(input_x,
                                                  augment_fn=train_augment_fn,
                                                  batch_size=FLAGS.batch_size,
                                                  repeat_train_dataset=FLAGS.repeat_train_dataset) \
         .shuffle(buffer_size=FLAGS.shuffle_buffer_size)
 
-    test_dataset = augment.get_data_iterator(input_x,
+    test_dataset = generate_random.get_data_iterator(input_x,
                                              augment_fn=validation_augment_fn,
                                              batch_size=FLAGS.batch_size,
                                              repeat_train_dataset=FLAGS.repeat_train_dataset)
@@ -121,7 +134,8 @@ with tf.Graph().as_default():
 
     next_batch_context_x, next_batch_endings_y = iter.get_next()
 
-    next_batch_context_x.set_shape([FLAGS.batch_size, FLAGS.sentence_length, FLAGS.word_embedding_dimension])
+    num_sentences_total = FLAGS.num_context_sentences + FLAGS.classes
+    next_batch_context_x.set_shape([FLAGS.batch_size, num_sentences_total, FLAGS.sentence_length])
 
     train_init_op = iter.make_initializer(train_dataset, name='train_dataset')
     test_init_op = iter.make_initializer(test_dataset, name='test_dataset')
@@ -135,31 +149,43 @@ with tf.Graph().as_default():
     with sess.as_default():
 
         # Build execution graph
-        network = BiDirectional_LSTM(next_batch_context_x)
+        network = BiDirectional_LSTM(sess, vocab, next_batch_context_x)
 
-        output = network.build_model()
+        # train_logits: [batch_size]
+        # eval_predictions: [batch_size] (index of prediction
+        eval_predictions, train_logits = network.build_model()
 
         # Compare with next_batch_endings_y
         loss = tf.reduce_mean(
             # loss something
-            tf.losses.sparse_softmax_cross_entropy(next_batch_endings_y, output)
+            tf.losses.sigmoid_cross_entropy(next_batch_endings_y[:, 0], train_logits)
         )
 
-        predictions = tf.argmax(
-            tf.sparse_softmax(output), axis=1
+        correct_position = tf.cast(tf.argmax(next_batch_endings_y, axis=1), dtype=tf.int32)
+        accuracy = tf.reduce_mean(
+            tf.cast(
+                tf.equal(eval_predictions, correct_position), dtype=tf.float32
+            )
         )
-        accuracy = tf.equal(output, next_batch_endings_y)
 
         """Initialize iterators"""
         train_handle = sess.run(train_iterator.string_handle())
         test_handle = sess.run(test_iterator.string_handle())
+
+        sess.run(train_iterator.initializer, feed_dict={input_x: sentences})
+        sess.run(test_iterator.initializer, feed_dict={input_x: sentences}) # TODO: Make dev set
+
 
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
         # TODO: Define an optimizer, e.g. AdamOptimizer
         optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
         # TODO: Define a training operation, including the global_step
-        train_op = optimizer.minimize(loss, global_step=global_step)
+        # train_op = optimizer.minimize(loss, global_step=global_step)
+
+        gradients = optimizer.compute_gradients(loss)
+        clipped_gradients = [(tf.clip_by_norm(gradient, FLAGS.grad_clip), var) for gradient, var in gradients]
+        train_op = optimizer.apply_gradients(clipped_gradients, global_step=global_step)
 
         # Output directory for models and summaries
         timestamp = str(int(time.time()))
@@ -203,9 +229,11 @@ with tf.Graph().as_default():
             A single training step
             """
             feed_dict = {handle: train_handle}
-            fetches = [train_op, global_step, train_summary_op, loss, accuracy]
-            _, step, summaries, loss, accuracy = sess.run(fetches, feed_dict)
+            fetches = [train_op, global_step, train_summary_op, loss, accuracy, correct_position, eval_predictions, next_batch_context_x]
+            _, step, summaries, loss, accuracy, by, tl, context = sess.run(fetches, feed_dict)
 
+            # print(f"{context[0]}")
+            print(f"{by}, {tl}")
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g}, acc {:g}".format(
                 time_str, step, loss, accuracy))
