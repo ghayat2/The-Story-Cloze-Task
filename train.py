@@ -18,6 +18,8 @@ import sys
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data used for validation (default: 10%)")
 tf.flags.DEFINE_string("data_sentences_path", "./data/processed/train_stories.csv.npy", "Path to sentences file")
 tf.flags.DEFINE_string("data_sentences_vocab_path", "./data/processed/train_stories.csv_vocab.npy", "Path to sentences vocab file")
+tf.flags.DEFINE_string("data_sentences_eval_path", "./data/processed/eval_stories.csv.npy", "Path to eval sentences file")
+tf.flags.DEFINE_string("data_sentences_eval_labels_path", "./data/processed/eval_stories.csv_labels.npy", "Path to eval sentences file")
 
 
 # Model parameters
@@ -26,6 +28,8 @@ tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
 tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
 tf.flags.DEFINE_integer("num_context_sentences", 4, "Number of context sentences")
 tf.flags.DEFINE_integer("classes", 2, "Number of output classes")
+tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
+
 
 tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
 tf.flags.DEFINE_string("path_embeddings", "data/wordembeddings-dim100.word2vec", "Path to the word2vec embeddings")
@@ -44,8 +48,9 @@ tf.flags.DEFINE_integer("rnn_cell_size", 1000, "RNN cell size")
 # Training parameters
 tf.flags.DEFINE_float("learning_rate", 0.001, "Learning rate (default: 0.001)")
 tf.flags.DEFINE_integer("repeat_train_dataset", 5000, "Number of times to repeat the dataset")
+tf.flags.DEFINE_integer("repeat_eval_dataset", 500, "Number of times to repeat the dataset")
 tf.flags.DEFINE_integer("shuffle_buffer_size", 5, "Buffer size for shuffling")
-tf.flags.DEFINE_integer("batch_size", 32, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 500, "Save model after this many steps (default: 100)")
@@ -74,12 +79,24 @@ print("")
 
 # Load sentences from numpy file, with ids but not embedded
 sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, sentence_length (5), vocab_size (30)]
+six_sentence = np.zeros((sentences.shape[0], 1, sentences.shape[2]), dtype=np.int32)
+sentences = np.concatenate([sentences, six_sentence], axis=1)
+
+print(sentences[0])
+
 print(sentences.shape)
 # sentences = sentences[:10, :, :]
 
 vocab = np.load(FLAGS.data_sentences_vocab_path)  # vocab contains [symbol: id]
 vocabLookup = dict((v,k) for k,v in vocab.item().items()) # flip our vocab dict so we can easy lookup [id: symbol]
 
+# eval sentences
+# six sentences, plus label
+eval_sentences = np.load(FLAGS.data_sentences_eval_path).astype(dtype=np.int32)
+eval_labels = np.load(FLAGS.data_sentences_eval_labels_path).astype(dtype=np.int32)
+eval_labels -= 1
+
+# print(eval_sentences[0:5])
 
 # sentence embeddings
 # sentences is the vector of size 5 with the vector of size 30 with word numbers, [batch_size, sentence_len, vocab_size]
@@ -98,7 +115,8 @@ with tf.Graph().as_default():
     randomPicker = RandomPicker(allSentences, len(sentences))
 
     # Placeholder tensor for input, which is just the sentences with ids
-    input_x = tf.placeholder(tf.int32, [None, FLAGS.num_sentences_train, FLAGS.sentence_length]) # [batch_size, sentence_length]
+    input_x = tf.placeholder(tf.int32, [None, FLAGS.num_context_sentences + FLAGS.classes, FLAGS.sentence_length]) # [batch_size, sentence_length]
+    input_y = tf.placeholder(tf.int32, [None])
 
     """Iterator stuff"""
     # Initialize model
@@ -120,10 +138,11 @@ with tf.Graph().as_default():
                                                  repeat_train_dataset=FLAGS.repeat_train_dataset) \
         .shuffle(buffer_size=FLAGS.shuffle_buffer_size)
 
-    test_dataset = generate_random.get_data_iterator(input_x,
-                                             augment_fn=validation_augment_fn,
+    test_dataset = generate_random.get_eval_iterator(input_x,
+                                                     input_y,
                                              batch_size=FLAGS.batch_size,
-                                             repeat_train_dataset=FLAGS.repeat_train_dataset)
+                                             repeat_eval_dataset=FLAGS.repeat_eval_dataset)
+    print("Test output types", test_dataset.output_types)
 
     # Iterators on the training and validation dataset
     train_iterator = train_dataset.make_initializable_iterator()
@@ -174,7 +193,7 @@ with tf.Graph().as_default():
         test_handle = sess.run(test_iterator.string_handle())
 
         sess.run(train_iterator.initializer, feed_dict={input_x: sentences})
-        sess.run(test_iterator.initializer, feed_dict={input_x: sentences}) # TODO: Make dev set
+        sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels}) # TODO: Make dev set
 
 
         # Define training procedure

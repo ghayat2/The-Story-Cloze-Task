@@ -6,12 +6,12 @@ import numpy as np
 CONTEXT_LENGTH = 4
 
 def endings(sentences):
-    return [split_sentences(sentence)[1] for sentence in sentences]
+    return [split_sentences(sentence)[1][0] for sentence in sentences]
 
 
 def split_sentences(sentences):
     # Split sentences into [context], ending
-    return sentences[0:CONTEXT_LENGTH, :], sentences[CONTEXT_LENGTH, :]
+    return sentences[0:CONTEXT_LENGTH, :], sentences[CONTEXT_LENGTH:, :]
 
 
 
