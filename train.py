@@ -132,11 +132,14 @@ with tf.Graph().as_default():
     }
     validation_augment_fn = functools.partial(generate_random.augment_data, **validation_augment_config)
 
-    train_dataset = generate_random.get_data_iterator(input_x,
-                                                 augment_fn=train_augment_fn,
-                                                 batch_size=FLAGS.batch_size,
-                                                 repeat_train_dataset=FLAGS.repeat_train_dataset) \
-        .shuffle(buffer_size=FLAGS.shuffle_buffer_size)
+    # train_dataset = generate_random.get_data_iterator(input_x,
+    #                                              augment_fn=train_augment_fn,
+    #                                              batch_size=FLAGS.batch_size,
+    #                                              repeat_train_dataset=FLAGS.repeat_train_dataset)
+    train_dataset = generate_random.get_eval_iterator(input_x,
+                                                     input_y,
+                                             batch_size=FLAGS.batch_size,
+                                             repeat_eval_dataset=FLAGS.repeat_train_dataset)
 
     test_dataset = generate_random.get_eval_iterator(input_x,
                                                      input_y,
@@ -192,8 +195,9 @@ with tf.Graph().as_default():
         train_handle = sess.run(train_iterator.string_handle())
         test_handle = sess.run(test_iterator.string_handle())
 
-        sess.run(train_iterator.initializer, feed_dict={input_x: sentences})
-        sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels}) # TODO: Make dev set
+        # sess.run(train_iterator.initializer, feed_dict={input_x: sentences})
+        sess.run(train_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
+        sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
 
 
         # Define training procedure
