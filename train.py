@@ -2,6 +2,7 @@ import data_utils as d
 from models.bidirectional_lstm import BiDirectional_LSTM
 from generate_random import RandomPicker
 import generate_random
+import losses
 
 import tensorflow as tf
 import numpy as np
@@ -56,6 +57,9 @@ tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after 
 tf.flags.DEFINE_integer("checkpoint_every", 500, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 tf.flags.DEFINE_float("grad_clip", 10, "Gradient clip")
+
+tf.flags.DEFINE_string("loss_function", "SIGMOID", "Loss function to use. Options: SIGMOID, SOFTMAX")
+
 
 # Tensorflow Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -175,14 +179,15 @@ with tf.Graph().as_default():
 
         # train_logits: [batch_size]
         # eval_predictions: [batch_size] (index of prediction
-        eval_predictions, endings = network.build_model()
+        eval_predictions, endings, train_logits = network.build_model()
 
         # Compare with next_batch_endings_y
-        loss = tf.reduce_mean(
-            # loss something
-            tf.nn.sparse_softmax_cross_entropy_with_logits(labels=next_batch_endings_y, logits=endings)
-            # tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(next_batch_endings_y, dtype=tf.float32), logits=train_logits)
-        )
+        if FLAGS.loss_function == "SIGMOID":
+            loss = losses.sigmoid(next_batch_endings_y, train_logits)
+        elif FLAGS.loss_function == "SOFTMAX":
+            loss = losses.sparse_softmax(next_batch_endings_y, endings)
+        else:
+            raise RuntimeError(f"Loss function {FLAGS.loss_function} not supported.")
 
         # correct_position = tf.cast(tf.argmax(next_batch_endings_y, axis=1), dtype=tf.int32)
         accuracy = tf.reduce_mean(
@@ -208,7 +213,7 @@ with tf.Graph().as_default():
         # TODO: Define a training operation, including the global_step
         # train_op = optimizer.minimize(loss, global_step=global_step)
 
-        gradients = optimizer.compute_gradients(loss)
+        gradients = optimizer.compute_gradients(losses)
         clipped_gradients = [(tf.clip_by_norm(gradient, FLAGS.grad_clip), var) for gradient, var in gradients]
         train_op = optimizer.apply_gradients(clipped_gradients, global_step=global_step)
 
@@ -218,7 +223,7 @@ with tf.Graph().as_default():
         print("Writing to {}\n".format(out_dir))
 
         # Summaries for loss and accuracy
-        loss_summary = tf.summary.scalar("loss", loss)
+        loss_summary = tf.summary.scalar("loss", losses)
         acc_summary = tf.summary.scalar("accuracy", accuracy)
 
         # Train Summaries
@@ -284,11 +289,11 @@ with tf.Graph().as_default():
         current_step = 0
         while True:
             try:
-                train_step(loss, accuracy, current_step)
+                train_step(losses, accuracy, current_step)
                 current_step = tf.train.global_step(sess, global_step)
                 if current_step % FLAGS.evaluate_every == 0:
                     print("\nEvaluation:")
-                    dev_step(loss, accuracy, writer=dev_summary_writer)
+                    dev_step(losses, accuracy, writer=dev_summary_writer)
                     print("")
                 if current_step % FLAGS.checkpoint_every == 0:
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)

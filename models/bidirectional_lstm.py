@@ -122,4 +122,4 @@ class BiDirectional_LSTM:
             self.train_probs = tf.sigmoid(self.train_logits)
             self.train_predictions = tf.to_int32(tf.round(self.train_probs))
 
-        return eval_predictions, endings
+        return eval_predictions, endings, self.train_logits
