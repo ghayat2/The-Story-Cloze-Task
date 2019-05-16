@@ -60,6 +60,7 @@ tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (d
 tf.flags.DEFINE_float("grad_clip", 10, "Gradient clip")
 
 tf.flags.DEFINE_string("loss_function", "SIGMOID", "Loss function to use. Options: SIGMOID, SOFTMAX")
+tf.flags.DEFINE_string("optimizer", "ADAM", "Optimizer to use. Options: ADAM, RMS")
 
 
 # Tensorflow Parameters
@@ -213,8 +214,12 @@ with tf.Graph().as_default():
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
         # TODO: Define an optimizer, e.g. AdamOptimizer
-        optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
-        # optimizer = tf.train.RMSPropOptimizer(learning_rate=FLAGS.learning_rate)
+        if FLAGS.optimizer == "ADAM":
+            optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
+        elif FLAGS.optimizer == "RMS":
+            optimizer = tf.train.RMSPropOptimizer(learning_rate=FLAGS.learning_rate)
+        else:
+            raise RuntimeError(f"Optimizer {FLAGS.optimizer} not supported!")
         # TODO: Define a training operation, including the global_step
         # train_op = optimizer.minimize(loss, global_step=global_step)
 
