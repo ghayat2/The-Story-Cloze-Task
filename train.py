@@ -82,7 +82,7 @@ sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, se
 six_sentence = np.zeros((sentences.shape[0], 1, sentences.shape[2]), dtype=np.int32)
 sentences = np.concatenate([sentences, six_sentence], axis=1)
 
-print(sentences[0])
+# print(sentences[0])
 
 print(sentences.shape)
 # sentences = sentences[:10, :, :]
@@ -175,19 +175,19 @@ with tf.Graph().as_default():
 
         # train_logits: [batch_size]
         # eval_predictions: [batch_size] (index of prediction
-        eval_predictions, train_logits = network.build_model()
+        eval_predictions, endings = network.build_model()
 
         # Compare with next_batch_endings_y
-        position = tf.cast(tf.argmax(next_batch_endings_y, axis=1), dtype=tf.int32)
         loss = tf.reduce_mean(
             # loss something
-            tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(position, dtype=tf.float32), logits=train_logits)
+            tf.nn.sparse_softmax_cross_entropy_with_logits(labels=next_batch_endings_y, logits=endings)
+            # tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(next_batch_endings_y, dtype=tf.float32), logits=train_logits)
         )
 
         # correct_position = tf.cast(tf.argmax(next_batch_endings_y, axis=1), dtype=tf.int32)
         accuracy = tf.reduce_mean(
             tf.cast(
-                tf.equal(eval_predictions, position), dtype=tf.float32
+                tf.equal(eval_predictions, next_batch_endings_y), dtype=tf.float32
             )
         )
 
@@ -254,8 +254,8 @@ with tf.Graph().as_default():
             A single training step
             """
             feed_dict = {handle: train_handle}
-            fetches = [train_op, global_step, train_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, train_logits, next_batch_context_x, network.train_predictions]
-            _, step, summaries, loss, accuracy, by, eval, tl, context, sanity = sess.run(fetches, feed_dict)
+            fetches = [train_op, global_step, train_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x, network.train_predictions]
+            _, step, summaries, loss, accuracy, by, eval, context, sanity = sess.run(fetches, feed_dict)
 
             # print(f"{sanity}")
             # print(f"{context[0:2]}")

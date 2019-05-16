@@ -51,7 +51,7 @@ def randomize_labels(sentences):
     shuffled = tf.random.shuffle(indexes)
     print("Randomized, sentences", sentences)
     return tf.gather(sentences, shuffled),\
-           tf.gather(labels, shuffled)
+           tf.cast(tf.argmax(tf.gather(labels, shuffled)), dtype=tf.int32)
 
 def get_data_iterator(sentences,
                         augment_fn=functools.partial(augment_data),
@@ -80,7 +80,6 @@ def get_eval_iterator(sentences, labels,
 
     # Create dataset from image and label paths
     dataset = tf.data.Dataset.from_tensor_slices((sentences, labels)) \
-        .map(transform_labels_onehot, num_parallel_calls=threads)\
         .batch(batch_size, drop_remainder=True) \
         .repeat(repeat_eval_dataset) \
         .shuffle(buffer_size=50)\
