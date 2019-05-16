@@ -6,6 +6,7 @@ import codecs
 import csv
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
+import itertools
 
 
 class default_dict(dict):
@@ -44,12 +45,12 @@ with codecs.open("data/"+ filename, encoding='utf-8') as f:
     for values in reader:
         texts.append(values[2:])
 
-MAX_NB_WORDS = 20000
+MAX_NB_WORDS = 20000 - 1 # cause pad
 MAX_SEQUENCE_LENGTH = 30
 
 flattened = [item for sublist in texts for item in sublist]
 
-tokenizer = Tokenizer(MAX_NB_WORDS, oov_token='<unk>')
+tokenizer = Tokenizer(MAX_NB_WORDS, oov_token='<unk>', filters='!"\'#$%&()*+,-./:;<=>?@[\\]^_`{|}~\t\n')
 tokenizer.fit_on_texts(flattened)
 word_index = tokenizer.word_index #the dict values start from 1 so this is fine with zeropadding
 index2word = {v: k for k, v in word_index.items()}
@@ -65,8 +66,9 @@ for story in texts:
     )
 
 # data_1 = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
+word_index["<pad>"] = 0
 
-print(word_index)
+print(dict(itertools.islice(word_index.items(), MAX_NB_WORDS)))
 
 # print(sequences[0:4])
 # if vocabname is not None:
@@ -84,7 +86,7 @@ print(word_index)
 #     vocab = default_dict(vocab["<unk>"], vocab)
 
 data = np.array(sequences, dtype=int)
-np.save("data/processed/" + filename + "_vocab", dict(word_index))
+np.save("data/processed/" + filename + "_vocab", dict(itertools.islice(word_index.items(), MAX_NB_WORDS)))
 np.save("data/processed/" + filename, data)
 
 
