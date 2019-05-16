@@ -44,7 +44,7 @@ class BiDirectional_LSTM:
 
         with tf.variable_scope("word_rnn"):
             # per_sentence_states = self._word_rnn(sentence_word_embeddings)
-            per_sentence_states = tf.reduce_mean(sentence_word_embeddings, axis=2)
+            per_sentence_states = tf.reduce_sum(sentence_word_embeddings, axis=2)
         return per_sentence_states
 
     def _create_cell(self, rnn_cell_dim, name=None) -> tf.nn.rnn_cell.RNNCell:
