@@ -44,3 +44,17 @@ def load_embedding(session, vocab, emb, path, dim_embedding, vocab_size):
     pretrained_embeddings = tf.placeholder(tf.float32, [None, None])
     assign_op = emb.assign(pretrained_embeddings)
     session.run(assign_op, {pretrained_embeddings: external_embedding})  # here, embeddings are actually set
+
+def sentences_to_sparse_tensor(sentences):
+    separated_sentences = sentences.split(".")
+    dim1 = len(separated_sentences)
+    dim2 = 0
+    indices = []
+    values = []
+    for i in range(len(separated_sentences)):
+        words = separated_sentences[i].split()
+        dim2 = max(dim2, len(words))
+        for j in range(len(words)):
+            indices.append((i,j))
+            values.append(words[j])
+    return tf.SparseTensor(values=values, indices=indices, dense_shape=(dim1, dim2))
