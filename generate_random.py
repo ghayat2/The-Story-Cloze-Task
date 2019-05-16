@@ -16,7 +16,9 @@ class RandomPicker:
 
     # Pick a random sample sentence
     def pick(self, N = 1):
-        return [self.dictionary[np.random.randint(0, self.length), :] for i in range(N)]
+        # picks = []
+        rand_index = tf.random.uniform([N], 0, self.length, dtype=tf.int32)
+        return tf.gather(self.dictionary, rand_index)
     
 
 def augment_data(context, endings,
@@ -40,11 +42,10 @@ def augment_data(context, endings,
 def randomize_labels(sentences):
     # The index-4'th sentence is the correct one
     classes = FLAGS.classes
-    indexes = tf.range(classes, dtype=tf.int32)
-    shuffled_indexes = tf.random.shuffle(indexes)
-    index_of_zero = tf.cast(tf.argmin(shuffled_indexes), dtype=tf.int32)
-    return tf.gather(sentences, shuffled_indexes), index_of_zero
-    # return sentences, 0
+    labels = tf.one_hot(0, depth = classes)
+    indexes = tf.range(classes, dtype = tf.int32)
+    shuffled = tf.random.shuffle(indexes)
+    return tf.gather(sentences, shuffled), tf.gather(labels, shuffled)
 
 def get_data_iterator(sentences,
                         augment_fn=functools.partial(augment_data),

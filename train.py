@@ -156,16 +156,16 @@ with tf.Graph().as_default():
         eval_predictions, train_logits = network.build_model()
 
         # Compare with next_batch_endings_y
-        # position = tf.cast(tf.argmax(next_batch_endings_y, axis=1), dtype=tf.int32)
+        position = tf.cast(tf.argmax(next_batch_endings_y, axis=1), dtype=tf.int32)
         loss = tf.reduce_mean(
             # loss something
-            tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(next_batch_endings_y, dtype=tf.float32), logits=train_logits)
+            tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(position, dtype=tf.float32), logits=train_logits)
         )
 
         # correct_position = tf.cast(tf.argmax(next_batch_endings_y, axis=1), dtype=tf.int32)
         accuracy = tf.reduce_mean(
             tf.cast(
-                tf.equal(eval_predictions, next_batch_endings_y), dtype=tf.float32
+                tf.equal(eval_predictions, position), dtype=tf.float32
             )
         )
 
@@ -180,8 +180,8 @@ with tf.Graph().as_default():
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
         # TODO: Define an optimizer, e.g. AdamOptimizer
-        # optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
-        optimizer = tf.train.RMSPropOptimizer(learning_rate=FLAGS.learning_rate)
+        optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
+        # optimizer = tf.train.RMSPropOptimizer(learning_rate=FLAGS.learning_rate)
         # TODO: Define a training operation, including the global_step
         # train_op = optimizer.minimize(loss, global_step=global_step)
 
@@ -234,10 +234,10 @@ with tf.Graph().as_default():
             fetches = [train_op, global_step, train_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, train_logits, next_batch_context_x, network.train_predictions]
             _, step, summaries, loss, accuracy, by, eval, tl, context, sanity = sess.run(fetches, feed_dict)
 
-            print(f"{sanity}")
-            # print(f"{context[0]}")
+            # print(f"{sanity}")
+            # print(f"{context[0:2]}")
             # print(f"{tl}")
-            print(f"{by}, {eval}")
+            # print(f"{by}, {eval}")
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g}, acc {:g}".format(
                 time_str, step, loss, accuracy))
