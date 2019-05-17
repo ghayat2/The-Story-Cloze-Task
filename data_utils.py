@@ -4,6 +4,8 @@ import tensorflow as tf
 import numpy as np
 
 CONTEXT_LENGTH = 4
+FLAGS = tf.flags.FLAGS
+
 
 def endings(sentences):
     return [split_sentences(sentence)[1][0] for sentence in sentences]
@@ -58,3 +60,13 @@ def sentences_to_sparse_tensor(sentences):
             indices.append((i,j))
             values.append(words[j])
     return tf.SparseTensor(values=values, indices=indices, dense_shape=(dim1, dim2))
+
+def randomize_labels(sentences):
+    # The index-4'th sentence is the correct one
+    classes = FLAGS.classes
+    labels = tf.one_hot(0, depth = classes, dtype=tf.int32)
+    indexes = tf.range(classes, dtype = tf.int32)
+    shuffled = tf.random.shuffle(indexes)
+    print("Randomized, sentences", sentences)
+    return tf.gather(sentences, shuffled),\
+           tf.cast(tf.argmax(tf.gather(labels, shuffled)), dtype=tf.int32)

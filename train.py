@@ -1,6 +1,8 @@
 import data_utils as d
 from models.bidirectional_lstm import BiDirectional_LSTM
 from generate_random import RandomPicker
+from generate_backwards import BackPicker
+import generate_backwards
 import generate_random
 import losses
 
@@ -93,7 +95,7 @@ sentences = np.concatenate([sentences, six_sentence], axis=1)
 print(sentences.shape)
 # sentences = sentences[:10, :, :]
 
-vocab = np.load(FLAGS.data_sentences_vocab_path)  # vocab contains [symbol: id]
+vocab = np.load(FLAGS.data_sentences_vocab_path, allow_pickle=True)  # vocab contains [symbol: id]
 vocabLookup = dict((v,k) for k,v in vocab.item().items()) # flip our vocab dict so we can easy lookup [id: symbol]
 
 # eval sentences
@@ -119,6 +121,7 @@ with tf.Graph().as_default():
 
     allSentences = tf.constant(np.squeeze(d.endings(sentences), axis=1))
     randomPicker = RandomPicker(allSentences, len(sentences))
+    backPicker = BackPicker()
 
     # Placeholder tensor for input, which is just the sentences with ids
     input_x = tf.placeholder(tf.int32, [None, FLAGS.num_context_sentences + FLAGS.classes, FLAGS.sentence_length]) # [batch_size, sentence_length]
@@ -129,30 +132,49 @@ with tf.Graph().as_default():
     handle = tf.placeholder(tf.string, shape=[])
 
     train_augment_config = {
-        'randomPicker': randomPicker,
+#        'randomPicker': randomPicker,
+        'backPicker': backPicker,
     }
-    train_augment_fn = functools.partial(generate_random.augment_data, **train_augment_config)
+    train_augment_fn = functools.partial(generate_backwards.augment_data, **train_augment_config)
+#    train_augment_fn = functools.partial(generate_random.augment_data, **train_augment_config)
+    
 
     validation_augment_config = {
-        'randomPicker': randomPicker,
+#        'randomPicker': randomPicker,
+         'backPicker': backPicker,
+
     }
-    validation_augment_fn = functools.partial(generate_random.augment_data, **validation_augment_config)
+    validation_augment_fn = functools.partial(generate_backwards.augment_data, **validation_augment_config)
+#    validation_augment_fn = functools.partial(generate_random.augment_data, **validation_augment_config)
 
     if FLAGS.use_train_set:
-        train_dataset = generate_random.get_data_iterator(input_x,
+        train_dataset = generate_backwards.get_data_iterator(input_x,
                                                      augment_fn=train_augment_fn,
                                                      batch_size=FLAGS.batch_size,
                                                      repeat_train_dataset=FLAGS.repeat_train_dataset)
+#        train_dataset = generate_random.get_data_iterator(input_x,
+#                                                     augment_fn=train_augment_fn,
+#                                                     batch_size=FLAGS.batch_size,
+#                                                     repeat_train_dataset=FLAGS.repeat_train_dataset)
     else:
-        train_dataset = generate_random.get_eval_iterator(input_x,
+        train_dataset = generate_backwards.get_eval_iterator(input_x,
                                                          input_y,
                                                  batch_size=FLAGS.batch_size,
                                                  repeat_eval_dataset=FLAGS.repeat_train_dataset)
+#        train_dataset = generate_random.get_eval_iterator(input_x,
+#                                                         input_y,
+#                                                 batch_size=FLAGS.batch_size,
+#                                                 repeat_eval_dataset=FLAGS.repeat_train_dataset)
 
-    test_dataset = generate_random.get_eval_iterator(input_x,
+    test_dataset = generate_backwards.get_eval_iterator(input_x,
                                                      input_y,
                                              batch_size=FLAGS.batch_size,
                                              repeat_eval_dataset=FLAGS.repeat_eval_dataset)
+#    test_dataset = generate_random.get_eval_iterator(input_x,
+#                                                     input_y,
+#                                             batch_size=FLAGS.batch_size,
+#                                             repeat_eval_dataset=FLAGS.repeat_eval_dataset)
+    
     print("Test output types", test_dataset.output_types)
 
     # Iterators on the training and validation dataset
