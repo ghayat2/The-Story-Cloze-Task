@@ -29,11 +29,12 @@ def augment_data(context, endings,
 
     print("Ending", endings)
     if randomPicker is not None:
-        randomSentence = randomPicker.pick()
-        print("Random", randomSentence)
+        randomSentences = randomPicker.pick(N = FLAGS.classes - 1)
+        print("Random", randomSentences)
+        print("ending1", tf.expand_dims(ending1, axis = 0))
         # together = [endings, randomSentence]
 
-    all_endings = tf.stack([ending1, randomSentence[0]], axis=0)
+    all_endings = tf.concat([tf.expand_dims(ending1, axis = 0), randomSentences], axis = 0)        
     print("All Endings", all_endings)
 
     randomized_endings, labels = d.randomize_labels(all_endings)

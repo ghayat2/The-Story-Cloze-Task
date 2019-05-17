@@ -132,48 +132,48 @@ with tf.Graph().as_default():
     handle = tf.placeholder(tf.string, shape=[])
 
     train_augment_config = {
-#        'randomPicker': randomPicker,
-        'backPicker': backPicker,
+        'randomPicker': randomPicker,
+#        'backPicker': backPicker,
     }
-    train_augment_fn = functools.partial(generate_backwards.augment_data, **train_augment_config)
-#    train_augment_fn = functools.partial(generate_random.augment_data, **train_augment_config)
+#    train_augment_fn = functools.partial(generate_backwards.augment_data, **train_augment_config)
+    train_augment_fn = functools.partial(generate_random.augment_data, **train_augment_config)
     
 
     validation_augment_config = {
-#        'randomPicker': randomPicker,
-         'backPicker': backPicker,
+        'randomPicker': randomPicker,
+#         'backPicker': backPicker,
 
     }
-    validation_augment_fn = functools.partial(generate_backwards.augment_data, **validation_augment_config)
-#    validation_augment_fn = functools.partial(generate_random.augment_data, **validation_augment_config)
+#    validation_augment_fn = functools.partial(generate_backwards.augment_data, **validation_augment_config)
+    validation_augment_fn = functools.partial(generate_random.augment_data, **validation_augment_config)
 
     if FLAGS.use_train_set:
-        train_dataset = generate_backwards.get_data_iterator(input_x,
-                                                     augment_fn=train_augment_fn,
-                                                     batch_size=FLAGS.batch_size,
-                                                     repeat_train_dataset=FLAGS.repeat_train_dataset)
-#        train_dataset = generate_random.get_data_iterator(input_x,
+#        train_dataset = generate_backwards.get_data_iterator(input_x,
 #                                                     augment_fn=train_augment_fn,
 #                                                     batch_size=FLAGS.batch_size,
 #                                                     repeat_train_dataset=FLAGS.repeat_train_dataset)
+        train_dataset = generate_random.get_data_iterator(input_x,
+                                                     augment_fn=train_augment_fn,
+                                                     batch_size=FLAGS.batch_size,
+                                                     repeat_train_dataset=FLAGS.repeat_train_dataset)
     else:
-        train_dataset = generate_backwards.get_eval_iterator(input_x,
-                                                         input_y,
-                                                 batch_size=FLAGS.batch_size,
-                                                 repeat_eval_dataset=FLAGS.repeat_train_dataset)
-#        train_dataset = generate_random.get_eval_iterator(input_x,
+#        train_dataset = generate_backwards.get_eval_iterator(input_x,
 #                                                         input_y,
 #                                                 batch_size=FLAGS.batch_size,
 #                                                 repeat_eval_dataset=FLAGS.repeat_train_dataset)
-
-    test_dataset = generate_backwards.get_eval_iterator(input_x,
-                                                     input_y,
-                                             batch_size=FLAGS.batch_size,
-                                             repeat_eval_dataset=FLAGS.repeat_eval_dataset)
-#    test_dataset = generate_random.get_eval_iterator(input_x,
+        train_dataset = generate_random.get_eval_iterator(input_x,
+                                                         input_y,
+                                                 batch_size=FLAGS.batch_size,
+                                                 repeat_eval_dataset=FLAGS.repeat_train_dataset)
+#
+#    test_dataset = generate_backwards.get_eval_iterator(input_x,
 #                                                     input_y,
 #                                             batch_size=FLAGS.batch_size,
 #                                             repeat_eval_dataset=FLAGS.repeat_eval_dataset)
+    test_dataset = generate_random.get_eval_iterator(input_x,
+                                                     input_y,
+                                             batch_size=FLAGS.batch_size,
+                                             repeat_eval_dataset=FLAGS.repeat_eval_dataset)
     
     print("Test output types", test_dataset.output_types)
 
