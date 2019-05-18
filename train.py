@@ -292,6 +292,13 @@ with tf.Graph().as_default():
         sess.run(init)
         sess.graph.finalize()
 
+        # Print variables [DEBUG]
+        tvars = tf.trainable_variables()
+        tvars_vals = sess.run(tvars)
+
+        for var, val in zip(tvars, tvars_vals):
+            print(var.name)  # Prints the name of the variable alongside its value.
+
         # Define training and dev steps (batch)
         def train_step(loss, accuracy, current_step):
             """

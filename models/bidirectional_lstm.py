@@ -133,7 +133,7 @@ class BiDirectional_LSTM:
         print("-------------ENDING_OUTPUTS-----------", ending_outputs)
 
         with tf.name_scope("eval_predictions"):
-            endings = tf.reshape(ending_outputs, (FLAGS.batch_size, FLAGS.classes))
+            endings = tf.squeeze(tf.transpose(ending_outputs), axis=0)
             self.sanity_endings = endings
             print("-------------ENDINGS-----------", endings)
             eval_predictions = tf.to_int32(tf.argmax(endings, axis=1))
