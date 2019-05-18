@@ -48,12 +48,13 @@ class BiDirectional_LSTM:
         return per_sentence_states
 
     def _create_cell(self, rnn_cell_dim, name=None) -> tf.nn.rnn_cell.RNNCell:
+        reuse = tf.AUTO_REUSE
         if FLAGS.rnn_cell == "LSTM":
-            return tf.nn.rnn_cell.LSTMCell(rnn_cell_dim, name=name, reuse=True)
+            return tf.nn.rnn_cell.LSTMCell(rnn_cell_dim, name=name, reuse=reuse)
         elif FLAGS.rnn_cell == "GRU":
-            return tf.nn.rnn_cell.GRUCell(rnn_cell_dim, name=name, reuse=True)
+            return tf.nn.rnn_cell.GRUCell(rnn_cell_dim, name=name, reuse=reuse)
         elif FLAGS.rnn_cell == "VAN":
-            return tf.nn.rnn_cell.BasicRNNCell(rnn_cell_dim, name=name, reuse=True)
+            return tf.nn.rnn_cell.BasicRNNCell(rnn_cell_dim, name=name, reuse=reuse)
         else:
             raise ValueError(f"Unknown rnn_cell {FLAGS.rnn_cell}.")
 
