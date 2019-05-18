@@ -54,7 +54,7 @@ tf.flags.DEFINE_float("learning_rate", 0.001, "Learning rate (default: 0.001)")
 tf.flags.DEFINE_integer("repeat_train_dataset", 5000, "Number of times to repeat the dataset")
 tf.flags.DEFINE_integer("repeat_eval_dataset", 500, "Number of times to repeat the dataset")
 tf.flags.DEFINE_integer("shuffle_buffer_size", 5, "Buffer size for shuffling")
-tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("batch_size", 128, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 20, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 500, "Save model after this many steps (default: 100)")
@@ -308,7 +308,7 @@ with tf.Graph().as_default():
             fetches = [train_op, global_step, train_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x, network.train_predictions]
             _, step, summaries, loss, accuracy, by, eval, context, sanity = sess.run(fetches, feed_dict)
 
-            # print(f"{sanity}")
+            print(f"{sanity}")
             print("shape context", context.shape)
             # print(f"{tl}")
             print(f"{by}")

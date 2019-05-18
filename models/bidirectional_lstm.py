@@ -108,11 +108,11 @@ class BiDirectional_LSTM:
             print("sentence_states", sentence_states.get_shape())
             ending_states = per_sentence_states[:, FLAGS.num_context_sentences:, :]
             print("-------------ENDING_STATES-----------", ending_states)
-            sentence_states = tf.reshape(sentence_states, [FLAGS.num_context_sentences,FLAGS.batch_size,FLAGS.word_embedding_dimension])
-            ending_states = tf.reshape(ending_states, [FLAGS.classes,FLAGS.batch_size,FLAGS.word_embedding_dimension])
-            stories = tf.map_fn(lambda x: tf.concat([sentence_states, tf.expand_dims(x, axis = 0)], axis = 0), ending_states)
-            stories = tf.reshape(stories, [FLAGS.classes, FLAGS.batch_size, FLAGS.num_context_sentences + 1, FLAGS.word_embedding_dimension])
-            print("-------------ENDING_STATES-----------", stories)
+            # sentence_states = tf.reshape(sentence_states, [FLAGS.num_context_sentences,FLAGS.batch_size,FLAGS.word_embedding_dimension])
+            # ending_states = tf.reshape(ending_states, [FLAGS.classes,FLAGS.batch_size,FLAGS.word_embedding_dimension])
+            # stories = tf.map_fn(lambda x: tf.concat([sentence_states, tf.expand_dims(x, axis = 0)], axis = 0), ending_states)
+            # stories = tf.reshape(stories, [FLAGS.classes, FLAGS.batch_size, FLAGS.num_context_sentences + 1, FLAGS.word_embedding_dimension])
+            # print("-------------ENDING_STATES-----------", stories)
 
 
 
@@ -121,26 +121,28 @@ class BiDirectional_LSTM:
             with tf.name_scope("sentence_rnn"):
                 per_story_states = []
                 for i in range(FLAGS.classes):
-                    res = self._sentence_rnn(stories[i, :, :, :])
+                    story = tf.concat([sentence_states, ending_states[:, i:i+1, :]], axis=1)
+                    print(f"Story {i}", story)
+                    res = self._sentence_rnn(story)
                     print("RES", res)
                     # per_story_states = tf.map_fn(self._sentence_rnn, stories)
                     with tf.name_scope("fc"):
                         ending_outputs = self._output_fc(res)
                         per_story_states.append(ending_outputs)
 
-                ending_outputs = tf.stack(per_story_states, axis=0)
+                ending_outputs = tf.stack(per_story_states, axis=1)
 
         print("-------------ENDING_OUTPUTS-----------", ending_outputs)
 
         with tf.name_scope("eval_predictions"):
-            endings = tf.squeeze(tf.transpose(ending_outputs), axis=0)
+            endings = tf.squeeze(ending_outputs, axis=2)
             self.sanity_endings = endings
             print("-------------ENDINGS-----------", endings)
             eval_predictions = tf.to_int32(tf.argmax(endings, axis=1))
             print("-------------EVAL_PREDICTION-----------", eval_predictions)
 
         with tf.name_scope("train_predictions"):
-            self.train_logits = tf.squeeze(ending_outputs[0], axis=[1])
+            self.train_logits = tf.squeeze(ending_outputs[:, 0], axis=[1])
             self.train_probs = tf.sigmoid(self.train_logits)
             self.train_predictions = tf.to_int32(tf.round(self.train_probs))
 
