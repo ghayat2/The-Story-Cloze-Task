@@ -122,12 +122,14 @@ class BiDirectional_LSTM:
                 per_story_states = []
                 for i in range(FLAGS.classes):
                     res = self._sentence_rnn(stories[i, :, :, :])
-                    per_story_states.append(res)
+                    print("RES", res)
                     # per_story_states = tf.map_fn(self._sentence_rnn, stories)
+                    with tf.name_scope("fc"):
+                        ending_outputs = self._output_fc(res)
+                        per_story_states.append(ending_outputs)
 
-                per_story_states = tf.stack(per_story_states, axis=0)
-            with tf.name_scope("fc"):
-                ending_outputs = self._output_fc(per_story_states)
+                ending_outputs = tf.stack(per_story_states, axis=0)
+
         print("-------------ENDING_OUTPUTS-----------", ending_outputs)
 
         with tf.name_scope("eval_predictions"):
