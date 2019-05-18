@@ -31,7 +31,7 @@ tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in traini
 tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
 tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
 tf.flags.DEFINE_integer("num_context_sentences", 4, "Number of context sentences")
-tf.flags.DEFINE_integer("classes", 2, "Number of output classes")
+tf.flags.DEFINE_integer("classes", 3, "Number of output classes")
 tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
 
 
@@ -56,12 +56,12 @@ tf.flags.DEFINE_integer("repeat_eval_dataset", 500, "Number of times to repeat t
 tf.flags.DEFINE_integer("shuffle_buffer_size", 5, "Buffer size for shuffling")
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("evaluate_every", 20, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 500, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 tf.flags.DEFINE_float("grad_clip", 10, "Gradient clip")
 
-tf.flags.DEFINE_string("loss_function", "SIGMOID", "Loss function to use. Options: SIGMOID, SOFTMAX")
+tf.flags.DEFINE_string("loss_function", "SOFTMAX", "Loss function to use. Options: SIGMOID, SOFTMAX")
 tf.flags.DEFINE_string("optimizer", "ADAM", "Optimizer to use. Options: ADAM, RMS")
 
 
@@ -87,8 +87,8 @@ print("")
 
 # Load sentences from numpy file, with ids but not embedded
 sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, sentence_length (5), vocab_size (30)]
-six_sentence = np.zeros((sentences.shape[0], 1, sentences.shape[2]), dtype=np.int32)
-sentences = np.concatenate([sentences, six_sentence], axis=1)
+padding_sentences = np.zeros((sentences.shape[0], FLAGS.classes -1, sentences.shape[2]), dtype=np.int32)
+sentences = np.concatenate([sentences, padding_sentences], axis=1)
 
 # print(sentences[0])
 
@@ -101,6 +101,12 @@ vocabLookup = dict((v,k) for k,v in vocab.item().items()) # flip our vocab dict 
 # eval sentences
 # six sentences, plus label
 eval_sentences = np.load(FLAGS.data_sentences_eval_path).astype(dtype=np.int32)
+print("eval sentences shape", np.shape(eval_sentences))
+if FLAGS.classes > 2:
+    padding_sentences = np.zeros((eval_sentences.shape[0], FLAGS.classes -2, eval_sentences.shape[2]), dtype=np.int32)
+    eval_sentences = np.concatenate([eval_sentences, padding_sentences], axis=1)
+print("eval sentences shape", np.shape(eval_sentences))
+
 eval_labels = np.load(FLAGS.data_sentences_eval_labels_path).astype(dtype=np.int32)
 eval_labels -= 1
 
@@ -230,6 +236,7 @@ with tf.Graph().as_default():
             sess.run(train_iterator.initializer, feed_dict={input_x: sentences})
         else:
             sess.run(train_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
+            
         sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
 
 
@@ -295,9 +302,10 @@ with tf.Graph().as_default():
             _, step, summaries, loss, accuracy, by, eval, context, sanity = sess.run(fetches, feed_dict)
 
             # print(f"{sanity}")
-            # print(f"{context[0:2]}")
+            print("shape context", context.shape)
             # print(f"{tl}")
-            # print(f"{by}, {eval}")
+            print(f"{by}")
+            print(f"{eval}")
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g}, acc {:g}".format(
                 time_str, step, loss, accuracy))
@@ -310,9 +318,11 @@ with tf.Graph().as_default():
             feed_dict = {
                 handle: test_handle
             }
-            fetches = [global_step, dev_summary_op, loss, accuracy]
-            step, summaries, loss, accuracy = sess.run(fetches, feed_dict)
+            fetches = [global_step, dev_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x]
+            step, summaries, loss, accuracy, by, eval, context = sess.run(fetches, feed_dict)
             time_str = datetime.datetime.now().isoformat()
+            print(f"{by}")
+            print(f"{eval}")
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
             if writer:
                 writer.add_summary(summaries, step)
