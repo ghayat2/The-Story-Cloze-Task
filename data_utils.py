@@ -1,5 +1,6 @@
 # Data utilities
 from gensim import models
+import gensim.downloader as api 
 import tensorflow as tf
 import numpy as np
 
@@ -29,7 +30,8 @@ def load_embedding(session, vocab, emb, path, dim_embedding, vocab_size):
 
     print("Loading external embeddings from %s" % path)
 
-    model = models.KeyedVectors.load_word2vec_format(path, binary=False)
+#    model = models.KeyedVectors.load_word2vec_format(path, binary=False)
+    model = api.load("glove-twitter-25")  # download the model and return as object ready for use
     external_embedding = np.zeros(shape=(vocab_size, dim_embedding))
     matches = 0
 
