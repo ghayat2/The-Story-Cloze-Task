@@ -29,7 +29,7 @@ tf.flags.DEFINE_bool("use_train_set", True, "Whether to use train set, use eval 
 # Model parameters
 tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in training set (default: 5)")
 tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
-tf.flags.DEFINE_integer("word_embedding_dimension", 200, "Word embedding dimension size (default: 100)")
+tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
 tf.flags.DEFINE_integer("num_context_sentences", 4, "Number of context sentences")
 tf.flags.DEFINE_integer("classes", 3, "Number of output classes")
 tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
