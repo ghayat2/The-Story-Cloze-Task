@@ -6,6 +6,14 @@ import numpy as np
 CONTEXT_LENGTH = 4
 FLAGS = tf.flags.FLAGS
 
+def makeSymbolStory(array, vocabLookup):
+    return [makeSymbols(s, vocabLookup) for s in array.tolist()]
+
+def makeSymbols(array, vocabLookup):
+    """
+    Convert array of integers into a sentence based on the dic argument
+    """
+    return list(vocabLookup[x] for x in array)
 
 def endings(sentences):
     return [split_sentences(sentence)[1][0] for sentence in sentences]

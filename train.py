@@ -5,6 +5,7 @@ from generate_backwards import BackPicker
 import generate_backwards
 import generate_random
 import losses
+import data_utils
 
 import tensorflow as tf
 import numpy as np
@@ -97,6 +98,7 @@ print(sentences.shape)
 
 vocab = np.load(FLAGS.data_sentences_vocab_path, allow_pickle=True)  # vocab contains [symbol: id]
 vocabLookup = dict((v,k) for k,v in vocab.item().items()) # flip our vocab dict so we can easy lookup [id: symbol]
+vocabLookup[0] = '<pad>'
 
 # eval sentences
 # six sentences, plus label
@@ -110,7 +112,7 @@ print("eval sentences shape", np.shape(eval_sentences))
 eval_labels = np.load(FLAGS.data_sentences_eval_labels_path).astype(dtype=np.int32)
 eval_labels -= 1
 
-# print(eval_sentences[0:5])
+# print(eval_sentences[0:1], eval_labels[0:1])
 
 # sentence embeddings
 # sentences is the vector of size 5 with the vector of size 30 with word numbers, [batch_size, sentence_len, vocab_size]
@@ -239,6 +241,11 @@ with tf.Graph().as_default():
             
         sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
 
+        # Iterator test for debugging to compare inputs
+        iterTestSentences, iterTestLabels = sess.run([next_batch_context_x, next_batch_endings_y], {handle: train_handle})
+        print("Story 1", data_utils.makeSymbolStory(iterTestSentences[0], vocabLookup))
+        print("Label 1", iterTestLabels[0])
+        exit(0)
 
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
