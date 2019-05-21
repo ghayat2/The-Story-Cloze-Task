@@ -243,10 +243,9 @@ with tf.Graph().as_default():
         sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
 
         # Iterator test for debugging to compare inputs
-        iterTestSentences, iterTestLabels = sess.run([next_batch_context_x, next_batch_endings_y], {handle: train_handle})
-        print("Story 1", data_utils.makeSymbolStory(iterTestSentences[0], vocabLookup))
-        print("Label 1", iterTestLabels[0])
-        exit(0)
+        # iterTestSentences, iterTestLabels = sess.run([next_batch_context_x, next_batch_endings_y], {handle: train_handle})
+        # print("Story 1", data_utils.makeSymbolStory(iterTestSentences[0], vocabLookup))
+        # print("Label 1", iterTestLabels[0])
 
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
