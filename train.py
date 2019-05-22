@@ -32,7 +32,7 @@ tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in traini
 tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
 tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
 tf.flags.DEFINE_integer("num_context_sentences", 4, "Number of context sentences")
-tf.flags.DEFINE_integer("classes", 3, "Number of output classes")
+tf.flags.DEFINE_integer("classes", 6, "Number of output classes")
 tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
 
 
@@ -317,7 +317,7 @@ with tf.Graph().as_default():
             print(f"{sanity}")
             print("shape context", context.shape)
             # print(f"{tl}")
-            print("--------next_batch_x -----------", context[0])
+            print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
             print(f"labels {by}")
             print(f"predictions {eval}")
             time_str = datetime.datetime.now().isoformat()
@@ -335,7 +335,7 @@ with tf.Graph().as_default():
             fetches = [global_step, dev_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x]
             step, summaries, loss, accuracy, by, eval, context = sess.run(fetches, feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("--------next_batch_x -----------", context[0])
+            print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
             print(f"labels {by}")
             print(f"predictions {eval}")
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
