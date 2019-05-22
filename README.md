@@ -19,3 +19,24 @@
 
 ## Links
 - Skip-thought: https://github.com/ryankiros/skip-thoughts
+
+
+## Things we want to test (21-05-2019)
+
+Discriminator
+ - Mean vs. sum in word embedding --> Submit job now
+    - Set pad vector to 0 ?
+    
+ - Skip-thought sentence embedding --> Arthur
+ - Multiple endings: 6
+    - 3/3 backwards/random --> Gabriel & Hidde
+ - Dropout --> Ji
+ - Introduce features
+    
+Generator
+ - Implement near-generation
+ - Implement VAE
+ - Implement LM
+    - LM project 1
+    - Pretrained ?
+    

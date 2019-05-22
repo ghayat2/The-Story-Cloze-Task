@@ -1,9 +1,6 @@
 import data_utils as d
 from models.bidirectional_lstm import BiDirectional_LSTM
-from generate_random import RandomPicker
-from generate_backwards import BackPicker
-import generate_backwards
-import generate_random
+import generate_combined
 import losses
 import data_utils
 
@@ -30,10 +27,13 @@ tf.flags.DEFINE_bool("use_train_set", True, "Whether to use train set, use eval 
 # Model parameters
 tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in training set (default: 5)")
 tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
-tf.flags.DEFINE_integer("word_embedding_dimension", 200, "Word embedding dimension size (default: 100)")
+tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
 tf.flags.DEFINE_integer("num_context_sentences", 4, "Number of context sentences")
 tf.flags.DEFINE_integer("classes", 3, "Number of output classes")
 tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
+
+tf.flags.DEFINE_integer("num_neg_random", 1, "Number of negative random endings")
+tf.flags.DEFINE_integer("num_neg_back", 1, "Number of negative back endings")
 
 
 tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
@@ -128,8 +128,16 @@ eval_labels -= 1
 with tf.Graph().as_default():
 
     allSentences = tf.constant(np.squeeze(d.endings(sentences), axis=1))
-    randomPicker = RandomPicker(allSentences, len(sentences))
-    backPicker = BackPicker()
+    randomPicker = generate_combined.RandomPicker(allSentences, len(sentences))
+    backPicker = generate_combined.BackPicker()
+
+    pickers = []
+    for i in range(FLAGS.num_neg_random):
+        pickers.append(randomPicker)
+    for i in range(FLAGS.num_neg_back):
+        pickers.append(backPicker)
+
+    assert len(pickers) + 1 == FLAGS.classes, "Number of generated endings must match the number of classes minus one (the positive ending)!"
 
     # Placeholder tensor for input, which is just the sentences with ids
     input_x = tf.placeholder(tf.int32, [None, FLAGS.num_context_sentences + FLAGS.classes, FLAGS.sentence_length]) # [batch_size, sentence_length]
@@ -140,48 +148,25 @@ with tf.Graph().as_default():
     handle = tf.placeholder(tf.string, shape=[])
 
     train_augment_config = {
-#        'randomPicker': randomPicker,
-        'backPicker': backPicker,
+        'pickers': pickers,
     }
-    train_augment_fn = functools.partial(generate_backwards.augment_data, **train_augment_config)
-#    train_augment_fn = functools.partial(generate_random.augment_data, **train_augment_config)
-    
-
-    validation_augment_config = {
-#        'randomPicker': randomPicker,
-         'backPicker': backPicker,
-
-    }
-    validation_augment_fn = functools.partial(generate_backwards.augment_data, **validation_augment_config)
-#    validation_augment_fn = functools.partial(generate_random.augment_data, **validation_augment_config)
+    train_augment_fn = functools.partial(generate_combined.augment_data, **train_augment_config)
 
     if FLAGS.use_train_set:
-        train_dataset = generate_backwards.get_data_iterator(input_x,
+        train_dataset = generate_combined.get_data_iterator(input_x,
                                                      augment_fn=train_augment_fn,
                                                      batch_size=FLAGS.batch_size,
                                                      repeat_train_dataset=FLAGS.repeat_train_dataset)
-#        train_dataset = generate_random.get_data_iterator(input_x,
-#                                                     augment_fn=train_augment_fn,
-#                                                     batch_size=FLAGS.batch_size,
-#                                                     repeat_train_dataset=FLAGS.repeat_train_dataset)
     else:
-        train_dataset = generate_backwards.get_eval_iterator(input_x,
+        train_dataset = generate_combined.get_eval_iterator(input_x,
                                                          input_y,
                                                  batch_size=FLAGS.batch_size,
                                                  repeat_eval_dataset=FLAGS.repeat_train_dataset)
-#        train_dataset = generate_random.get_eval_iterator(input_x,
-#                                                         input_y,
-#                                                 batch_size=FLAGS.batch_size,
-#                                                 repeat_eval_dataset=FLAGS.repeat_train_dataset)
 #
-    test_dataset = generate_backwards.get_eval_iterator(input_x,
+    test_dataset = generate_combined.get_eval_iterator(input_x,
                                                      input_y,
                                              batch_size=FLAGS.batch_size,
                                              repeat_eval_dataset=FLAGS.repeat_eval_dataset)
-#    test_dataset = generate_random.get_eval_iterator(input_x,
-#                                                     input_y,
-#                                             batch_size=FLAGS.batch_size,
-#                                             repeat_eval_dataset=FLAGS.repeat_eval_dataset)
     
     print("Test output types", test_dataset.output_types)
 
@@ -246,6 +231,7 @@ with tf.Graph().as_default():
         # iterTestSentences, iterTestLabels = sess.run([next_batch_context_x, next_batch_endings_y], {handle: train_handle})
         # print("Story 1", data_utils.makeSymbolStory(iterTestSentences[0], vocabLookup))
         # print("Label 1", iterTestLabels[0])
+
 
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
