@@ -88,7 +88,7 @@ FLAGS = tf.flags.FLAGS
 FLAGS(sys.argv)
 
 if FLAGS.random_seed is not None:
-    tf.set_random_seed(FLAGS.random_seed)
+    # tf.set_random_seed(FLAGS.random_seed)
     np.random.seed(FLAGS.random_seed)
     print(f"Using random seed: {FLAGS.random_seed}")
 
@@ -200,6 +200,9 @@ with tf.Graph().as_default():
         intra_op_parallelism_threads=FLAGS.intra_op_parallelism_threads)
     sess = tf.Session(config=session_conf)
     with sess.as_default():
+
+        if FLAGS.random_seed is not None:
+            tf.set_random_seed(FLAGS.random_seed)
 
         # Build execution graph
         network = BiDirectional_LSTM(sess, vocab, next_batch_context_x)
