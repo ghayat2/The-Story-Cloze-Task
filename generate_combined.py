@@ -72,10 +72,10 @@ def get_data_iterator(sentences,
 
     # Create dataset from image and label paths
     dataset = tf.data.Dataset.from_tensor_slices(sentences) \
+        .repeat(repeat_train_dataset) \
         .map(d.split_sentences, num_parallel_calls=threads) \
         .map(augment_fn, num_parallel_calls=threads) \
         .shuffle(buffer_size=5000) \
-        .repeat(repeat_train_dataset) \
         .batch(batch_size, drop_remainder=True)
 
     return dataset
