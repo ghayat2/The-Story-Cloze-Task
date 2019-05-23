@@ -23,6 +23,8 @@ tf.flags.DEFINE_string("data_sentences_eval_path", "./data/processed/eval_storie
 tf.flags.DEFINE_string("data_sentences_eval_labels_path", "./data/processed/eval_stories.csv_labels.npy", "Path to eval sentences file")
 tf.flags.DEFINE_bool("use_train_set", True, "Whether to use train set, use eval set for training otherwise")
 
+tf.flags.DEFINE_integer("random_seed", 42, "Random seed")
+
 
 # Model parameters
 tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in training set (default: 5)")
@@ -82,6 +84,9 @@ tf.flags.DEFINE_integer("intra_op_parallelism_threads", 2,
 
 FLAGS = tf.flags.FLAGS
 FLAGS(sys.argv)
+
+if FLAGS.random_seed is not None:
+    tf.set_random_seed(FLAGS.random_seed)
 
 print("\nParameters:")
 for attr, value in sorted(FLAGS.__flags.items()):
