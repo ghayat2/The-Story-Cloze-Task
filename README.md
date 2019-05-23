@@ -40,3 +40,5 @@ Generator
     - LM project 1
     - Pretrained ?
     
+Misc
+ - Data cleaning (numbers, contractions)

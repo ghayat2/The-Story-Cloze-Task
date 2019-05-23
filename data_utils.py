@@ -17,7 +17,9 @@ def makeSymbols(array, vocabLookup):
     """
     Convert array of integers into a sentence based on the dic argument
     """
-    return list(vocabLookup[x] for x in array)
+    conv = list(vocabLookup[x] for x in array)
+    filtered = filter(lambda x: x != '<pad>', conv) # For readability
+    return list(filtered)
 
 def endings(sentences):
     return [split_sentences(sentence)[1][0] for sentence in sentences]

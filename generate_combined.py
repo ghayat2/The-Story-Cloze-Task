@@ -30,21 +30,30 @@ class BackPicker:
     
 
 def augment_data(context, endings,
-                 pickers = []): # Augment the data
+                 randomPicker,
+                 backPicker,
+                 ratio_random = 0,
+                 ratio_back = 0): # Augment the data
 
     ending1 = endings[0] # set, correct ending
     #ending2 = endings[1] # not set, all 0s
 
     print("Ending", endings)
-    allGenerated = []
-    for picker in pickers:
-        generatedSentences = picker.pick(context, N = 1)
-        allGenerated.append(generatedSentences)
-        print("Random", generatedSentences)
+    if ratio_random > 0 and ratio_back == 0:
+        generatedSentence = randomPicker.pick(context, N = 1)
+    elif ratio_back > 0 and ratio_random == 0:
+        generatedSentence = backPicker.pick(context, N = 1)
+    else:
+        prob = tf.random.uniform([1], 0, 1, dtype=tf.float32)
+        print(f"Picking both. Ratio for random: {ratio_random / (ratio_random + ratio_back)}")
+        generatedSentence = tf.cond(tf.less(prob[0], ratio_random / (ratio_random + ratio_back)),
+                                                       lambda: randomPicker.pick(context, N = 1),
+                                                       lambda: backPicker.pick(context, N = 1)
+                                                       )
 
-    allGenerated = tf.concat(allGenerated, axis=0)
+    print("Random", generatedSentence)
 
-    all_endings = tf.concat([tf.expand_dims(ending1, axis = 0), allGenerated], axis = 0)
+    all_endings = tf.concat([tf.expand_dims(ending1, axis = 0), generatedSentence], axis = 0)
     print("All Endings", all_endings)
 
     randomized_endings, labels = d.randomize_labels(all_endings)
