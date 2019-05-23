@@ -65,9 +65,9 @@ def get_data_iterator(sentences,
     dataset = tf.data.Dataset.from_tensor_slices(sentences) \
         .map(d.split_sentences, num_parallel_calls=threads) \
         .map(augment_fn, num_parallel_calls=threads) \
-        .batch(batch_size, drop_remainder=True) \
         .repeat(repeat_train_dataset) \
-        .shuffle(buffer_size=50)
+        .shuffle(buffer_size=5000) \
+        .batch(batch_size, drop_remainder=True)
 
     return dataset
 
@@ -82,8 +82,8 @@ def get_eval_iterator(sentences, labels,
 
     # Create dataset from image and label paths
     dataset = tf.data.Dataset.from_tensor_slices((sentences, labels)) \
-        .batch(batch_size, drop_remainder=True) \
+        .shuffle(buffer_size=5000) \
         .repeat(repeat_eval_dataset) \
-        .shuffle(buffer_size=50)\
+        .batch(batch_size, drop_remainder=True) \
 
     return dataset
