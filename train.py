@@ -89,6 +89,8 @@ FLAGS(sys.argv)
 
 if FLAGS.random_seed is not None:
     tf.set_random_seed(FLAGS.random_seed)
+    np.random.seed(FLAGS.random_seed)
+    print(f"Using random seed: {FLAGS.random_seed}")
 
 print("\nParameters:")
 for attr, value in sorted(FLAGS.__flags.items()):
