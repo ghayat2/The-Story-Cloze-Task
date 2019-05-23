@@ -1,9 +1,6 @@
 import data_utils as d
 from models.bidirectional_lstm import BiDirectional_LSTM
-from generate_random import RandomPicker
-from generate_backwards import BackPicker
-import generate_backwards
-import generate_random
+import generate_combined
 import losses
 import data_utils
 
@@ -26,14 +23,21 @@ tf.flags.DEFINE_string("data_sentences_eval_path", "./data/processed/eval_storie
 tf.flags.DEFINE_string("data_sentences_eval_labels_path", "./data/processed/eval_stories.csv_labels.npy", "Path to eval sentences file")
 tf.flags.DEFINE_bool("use_train_set", True, "Whether to use train set, use eval set for training otherwise")
 
+tf.flags.DEFINE_integer("random_seed", 42, "Random seed")
+
 
 # Model parameters
 tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in training set (default: 5)")
 tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
-tf.flags.DEFINE_integer("word_embedding_dimension", 200, "Word embedding dimension size (default: 100)")
+tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
 tf.flags.DEFINE_integer("num_context_sentences", 4, "Number of context sentences")
-tf.flags.DEFINE_integer("classes", 3, "Number of output classes")
+tf.flags.DEFINE_integer("classes", 6, "Number of output classes")
 tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
+
+tf.flags.DEFINE_integer("num_neg_random", 1, "Number of negative random endings")
+tf.flags.DEFINE_integer("num_neg_back", 1, "Number of negative back endings")
+
+tf.flags.DEFINE_float("dropout_rate", 0.5, "Dropout rate")
 
 
 tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
@@ -65,6 +69,8 @@ tf.flags.DEFINE_float("grad_clip", 10, "Gradient clip")
 tf.flags.DEFINE_string("loss_function", "SOFTMAX", "Loss function to use. Options: SIGMOID, SOFTMAX")
 tf.flags.DEFINE_string("optimizer", "ADAM", "Optimizer to use. Options: ADAM, RMS")
 
+tf.flags.DEFINE_string("job_name", None, "Custom job name")
+
 
 # Tensorflow Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -80,6 +86,9 @@ tf.flags.DEFINE_integer("intra_op_parallelism_threads", 2,
 
 FLAGS = tf.flags.FLAGS
 FLAGS(sys.argv)
+
+if FLAGS.random_seed is not None:
+    tf.set_random_seed(FLAGS.random_seed)
 
 print("\nParameters:")
 for attr, value in sorted(FLAGS.__flags.items()):
@@ -128,8 +137,16 @@ eval_labels -= 1
 with tf.Graph().as_default():
 
     allSentences = tf.constant(np.squeeze(d.endings(sentences), axis=1))
-    randomPicker = RandomPicker(allSentences, len(sentences))
-    backPicker = BackPicker()
+    randomPicker = generate_combined.RandomPicker(allSentences, len(sentences))
+    backPicker = generate_combined.BackPicker()
+
+    pickers = []
+    for i in range(FLAGS.num_neg_random):
+        pickers.append(randomPicker)
+    for i in range(FLAGS.num_neg_back):
+        pickers.append(backPicker)
+
+    assert len(pickers) + 1 == FLAGS.classes, "Number of generated endings must match the number of classes minus one (the positive ending)!"
 
     # Placeholder tensor for input, which is just the sentences with ids
     input_x = tf.placeholder(tf.int32, [None, FLAGS.num_context_sentences + FLAGS.classes, FLAGS.sentence_length]) # [batch_size, sentence_length]
@@ -140,48 +157,25 @@ with tf.Graph().as_default():
     handle = tf.placeholder(tf.string, shape=[])
 
     train_augment_config = {
-#        'randomPicker': randomPicker,
-        'backPicker': backPicker,
+        'pickers': pickers,
     }
-    train_augment_fn = functools.partial(generate_backwards.augment_data, **train_augment_config)
-#    train_augment_fn = functools.partial(generate_random.augment_data, **train_augment_config)
-    
-
-    validation_augment_config = {
-#        'randomPicker': randomPicker,
-         'backPicker': backPicker,
-
-    }
-    validation_augment_fn = functools.partial(generate_backwards.augment_data, **validation_augment_config)
-#    validation_augment_fn = functools.partial(generate_random.augment_data, **validation_augment_config)
+    train_augment_fn = functools.partial(generate_combined.augment_data, **train_augment_config)
 
     if FLAGS.use_train_set:
-        train_dataset = generate_backwards.get_data_iterator(input_x,
+        train_dataset = generate_combined.get_data_iterator(input_x,
                                                      augment_fn=train_augment_fn,
                                                      batch_size=FLAGS.batch_size,
                                                      repeat_train_dataset=FLAGS.repeat_train_dataset)
-#        train_dataset = generate_random.get_data_iterator(input_x,
-#                                                     augment_fn=train_augment_fn,
-#                                                     batch_size=FLAGS.batch_size,
-#                                                     repeat_train_dataset=FLAGS.repeat_train_dataset)
     else:
-        train_dataset = generate_backwards.get_eval_iterator(input_x,
+        train_dataset = generate_combined.get_eval_iterator(input_x,
                                                          input_y,
                                                  batch_size=FLAGS.batch_size,
                                                  repeat_eval_dataset=FLAGS.repeat_train_dataset)
-#        train_dataset = generate_random.get_eval_iterator(input_x,
-#                                                         input_y,
-#                                                 batch_size=FLAGS.batch_size,
-#                                                 repeat_eval_dataset=FLAGS.repeat_train_dataset)
 #
-    test_dataset = generate_backwards.get_eval_iterator(input_x,
+    test_dataset = generate_combined.get_eval_iterator(input_x,
                                                      input_y,
                                              batch_size=FLAGS.batch_size,
                                              repeat_eval_dataset=FLAGS.repeat_eval_dataset)
-#    test_dataset = generate_random.get_eval_iterator(input_x,
-#                                                     input_y,
-#                                             batch_size=FLAGS.batch_size,
-#                                             repeat_eval_dataset=FLAGS.repeat_eval_dataset)
     
     print("Test output types", test_dataset.output_types)
 
@@ -247,6 +241,7 @@ with tf.Graph().as_default():
         # print("Story 1", data_utils.makeSymbolStory(iterTestSentences[0], vocabLookup))
         # print("Label 1", iterTestLabels[0])
 
+
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
         # TODO: Define an optimizer, e.g. AdamOptimizer
@@ -264,8 +259,11 @@ with tf.Graph().as_default():
         train_op = optimizer.apply_gradients(clipped_gradients, global_step=global_step)
 
         # Output directory for models and summaries
-        timestamp = str(int(time.time()))
-        out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
+        if FLAGS.job_name is not None:
+            job_name = FLAGS.job_name
+        else:
+            job_name = str(int(time.time()))
+        out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", job_name))
         print("Writing to {}\n".format(out_dir))
 
         # Summaries for loss and accuracy
@@ -317,7 +315,7 @@ with tf.Graph().as_default():
             print(f"{sanity}")
             print("shape context", context.shape)
             # print(f"{tl}")
-            print("--------next_batch_x -----------", context[0])
+            print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
             print(f"labels {by}")
             print(f"predictions {eval}")
             time_str = datetime.datetime.now().isoformat()
@@ -335,7 +333,7 @@ with tf.Graph().as_default():
             fetches = [global_step, dev_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x]
             step, summaries, loss, accuracy, by, eval, context = sess.run(fetches, feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("--------next_batch_x -----------", context[0])
+            print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
             print(f"labels {by}")
             print(f"predictions {eval}")
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
