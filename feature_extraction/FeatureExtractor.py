@@ -6,6 +6,9 @@ from data_utils import sentences_to_sparse_tensor as to_sparse
 import numpy as np
 import nltk
 
+"""
+Inspired by https://aclweb.org/anthology/W17-0908
+"""
 class FeatureExtractor():
 
     def __init__(self, tf_session, story, ending1, ending2):

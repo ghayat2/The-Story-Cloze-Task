@@ -1,6 +1,7 @@
 import tensorflow as tf
 from typing import Tuple
 import data_utils
+from embedding.sentence_embedder import SentenceEmbedder
 
 FLAGS = tf.flags.FLAGS
 
@@ -42,10 +43,11 @@ class BiDirectional_LSTM:
         with tf.name_scope("word_embeddings"):
             sentence_word_embeddings = self._word_embeddings()
 
-        with tf.variable_scope("word_rnn"):
-            # per_sentence_states = self._word_rnn(sentence_word_embeddings)
-            per_sentence_states = tf.reduce_sum(sentence_word_embeddings, axis=2)
-        return per_sentence_states
+            with tf.variable_scope("word_rnn"):
+                # per_sentence_states = self._word_rnn(sentence_word_embeddings)
+                per_sentence_states = tf.reduce_sum(sentence_word_embeddings, axis=2)
+
+            return per_sentence_states
 
     def _create_cell(self, rnn_cell_dim, name=None) -> tf.nn.rnn_cell.RNNCell:
         reuse = tf.AUTO_REUSE
@@ -107,7 +109,7 @@ class BiDirectional_LSTM:
 #            ending2_states = tf.concat([sentence_states, ending2_states], axis=1)
             
         with tf.name_scope("split_endings"):
-            per_sentence_states = self._sentence_states()
+            per_sentence_states = self.input if FLAGS.use_skip_thoughts else self._sentence_states()
             sentence_states = per_sentence_states[:, :FLAGS.num_context_sentences, :]
 
             print("sentence_states", sentence_states.get_shape())

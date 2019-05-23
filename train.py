@@ -1,4 +1,7 @@
+from pathlib import Path
+
 import data_utils as d
+from embedding.sentence_embedder import SentenceEmbedder
 from models.bidirectional_lstm import BiDirectional_LSTM
 import generate_combined
 import losses
@@ -25,6 +28,12 @@ tf.flags.DEFINE_bool("use_train_set", True, "Whether to use train set, use eval 
 
 tf.flags.DEFINE_integer("random_seed", 42, "Random seed")
 
+tf.flags.DEFINE_string("unprocessed_training_dataset_path", "./data/train_stories.csv", "Path to the training dataset")
+tf.flags.DEFINE_string("skip_thoughts_train_embeddings_path", "./data/processed/train_stories_skip_thoughts.npy",
+                       "Path to skip thoughts train sentence embeddings")
+tf.flags.DEFINE_string("skip_thoughts_eval_embeddings_path", "./data/processed/eval_stories_skip_thoughts.npy",
+                       "Path to skip thoughts evaluation sentence embeddings")
+
 
 # Model parameters
 tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in training set (default: 5)")
@@ -42,6 +51,7 @@ tf.flags.DEFINE_float("dropout_rate", 0.5, "Dropout rate")
 
 tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
 tf.flags.DEFINE_string("path_embeddings", "data/wordembeddings-dim100.word2vec", "Path to the word2vec embeddings")
+tf.flags.DEFINE_bool("use_skip_thoughts", True, "Whether we use skip thoughts for sentences embedding")
 
 
 
@@ -95,10 +105,36 @@ for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr.upper(), value.value))
 print("")
 
-# Load sentences from numpy file, with ids but not embedded
-sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, sentence_length (5), vocab_size (30)]
-padding_sentences = np.zeros((sentences.shape[0], FLAGS.classes -1, sentences.shape[2]), dtype=np.int32)
-sentences = np.concatenate([sentences, padding_sentences], axis=1)
+if FLAGS.use_skip_thoughts:
+    # Loads skip thoughts sentence embeddings
+    skip_thoughts_train_embeddings_file = Path(FLAGS.skip_thoughts_train_embeddings_path)
+    skip_thoughts_eval_embeddings_file = Path(FLAGS.skip_thoughts_eval_embeddings_path)
+    # If the embeddings haven't been saved in a file yet, compute and save them
+    if (not skip_thoughts_train_embeddings_file.is_file()) or (not skip_thoughts_eval_embeddings_file.is_file()):
+        embedder = SentenceEmbedder()
+        # Creates the embeddings for the training dataset
+        print("Generating skip thoughts training sentence embeddings...")
+        if not skip_thoughts_train_embeddings_file.is_file():
+            embedder.generate_embedded_training_set(
+                FLAGS.unprocessed_training_dataset_path,
+                FLAGS.skip_thoughts_train_embeddings_path
+            )
+        # Creates the embeddings for the testing dataset
+        print("Training dataset with skip thoughts embeddings successfully created !")
+        print("Generating skip thoughts evaluation sentence embeddings")
+        if not skip_thoughts_eval_embeddings_file.is_file():
+            embedder.generate_embedded_eval_set(
+                FLAGS.unprocessed_eval_dataset_path,
+                FLAGS.skip_thoughts_test_embeddings_path
+            )
+        print("Evaluation dataset with skip thoughts embeddings successfully created !")
+    # Loads the training embedded sentences
+    sentences = np.load(FLAGS.skip_thoughts_train_embeddings_path).astype(np.float32)
+else:
+    # Load sentences from numpy file, with ids but not embedded
+    sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, sentence_length (5), vocab_size (30)]
+    padding_sentences = np.zeros((sentences.shape[0], FLAGS.classes -1, sentences.shape[2]), dtype=np.int32)
+    sentences = np.concatenate([sentences, padding_sentences], axis=1)
 
 # print(sentences[0])
 
@@ -109,14 +145,24 @@ vocab = np.load(FLAGS.data_sentences_vocab_path, allow_pickle=True)  # vocab con
 vocabLookup = dict((v,k) for k,v in vocab.item().items()) # flip our vocab dict so we can easy lookup [id: symbol]
 vocabLookup[0] = '<pad>'
 
+
+def eval_shape():
+    print("eval sentences shape", np.shape(eval_sentences))
+
+
 # eval sentences
 # six sentences, plus label
-eval_sentences = np.load(FLAGS.data_sentences_eval_path).astype(dtype=np.int32)
-print("eval sentences shape", np.shape(eval_sentences))
-if FLAGS.classes > 2:
-    padding_sentences = np.zeros((eval_sentences.shape[0], FLAGS.classes -2, eval_sentences.shape[2]), dtype=np.int32)
-    eval_sentences = np.concatenate([eval_sentences, padding_sentences], axis=1)
-print("eval sentences shape", np.shape(eval_sentences))
+eval_sentences = None
+if FLAGS.use_skip_thoughts:
+    eval_sentences = np.load(FLAGS.skip_thoughts_test_embeddings_path).astype(dtype=np.float32)
+    eval_shape()
+else:
+    eval_sentences = np.load(FLAGS.data_sentences_eval_path).astype(dtype=np.int32)
+    eval_shape()
+    if FLAGS.classes > 2:
+        padding_sentences = np.zeros((eval_sentences.shape[0], FLAGS.classes -2, eval_sentences.shape[2]), dtype=np.int32)
+        eval_sentences = np.concatenate([eval_sentences, padding_sentences], axis=1)
+    eval_shape()
 
 eval_labels = np.load(FLAGS.data_sentences_eval_labels_path).astype(dtype=np.int32)
 eval_labels -= 1
