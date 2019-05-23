@@ -69,6 +69,8 @@ tf.flags.DEFINE_float("grad_clip", 10, "Gradient clip")
 tf.flags.DEFINE_string("loss_function", "SOFTMAX", "Loss function to use. Options: SIGMOID, SOFTMAX")
 tf.flags.DEFINE_string("optimizer", "ADAM", "Optimizer to use. Options: ADAM, RMS")
 
+tf.flags.DEFINE_string("job_name", None, "Custom job name")
+
 
 # Tensorflow Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -257,8 +259,11 @@ with tf.Graph().as_default():
         train_op = optimizer.apply_gradients(clipped_gradients, global_step=global_step)
 
         # Output directory for models and summaries
-        timestamp = str(int(time.time()))
-        out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
+        if FLAGS.job_name is not None:
+            job_name = FLAGS.job_name
+        else:
+            job_name = str(int(time.time()))
+        out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", job_name))
         print("Writing to {}\n".format(out_dir))
 
         # Summaries for loss and accuracy
