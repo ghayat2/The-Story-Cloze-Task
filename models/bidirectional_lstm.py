@@ -84,6 +84,9 @@ class BiDirectional_LSTM:
         output = tf.layers.dense(state, self.ACTIVATION_NODES, activation=None, name="output")
         print("output", output.get_shape())
         return output
+
+    def _dropout_layer(self, state: tf.Tensor) -> tf.Tensor:
+        return tf.nn.dropout(state, rate=FLAGS.dropout_rate)
             
 
     def build_model(self):
@@ -124,6 +127,10 @@ class BiDirectional_LSTM:
                     story = tf.concat([sentence_states, ending_states[:, i:i+1, :]], axis=1)
                     print(f"Story {i}", story)
                     res = self._sentence_rnn(story)
+
+                    # dropout
+                    res = self._dropout_layer(res)
+
                     print("RES", res)
                     # per_story_states = tf.map_fn(self._sentence_rnn, stories)
                     with tf.name_scope("fc"):

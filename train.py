@@ -35,6 +35,8 @@ tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
 tf.flags.DEFINE_integer("num_neg_random", 1, "Number of negative random endings")
 tf.flags.DEFINE_integer("num_neg_back", 1, "Number of negative back endings")
 
+tf.flags.DEFINE_float("dropout_rate", 0.5, "Dropout rate")
+
 
 tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
 tf.flags.DEFINE_string("path_embeddings", "data/wordembeddings-dim100.word2vec", "Path to the word2vec embeddings")
