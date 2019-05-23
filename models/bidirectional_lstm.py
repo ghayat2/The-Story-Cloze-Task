@@ -86,7 +86,7 @@ class BiDirectional_LSTM:
         return output
 
     def _dropout_layer(self, state: tf.Tensor) -> tf.Tensor:
-        if FLAGS.dropout_rate is not None:
+        if FLAGS.dropout_rate > 0:
             return tf.nn.dropout(state, rate=FLAGS.dropout_rate)
         return state
             
