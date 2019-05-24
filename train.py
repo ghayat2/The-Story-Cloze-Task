@@ -31,11 +31,11 @@ tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in traini
 tf.flags.DEFINE_integer("sentence_length", 30, "Sentence length (default: 30)")
 tf.flags.DEFINE_integer("word_embedding_dimension", 100, "Word embedding dimension size (default: 100)")
 tf.flags.DEFINE_integer("num_context_sentences", 4, "Number of context sentences")
-tf.flags.DEFINE_integer("classes", 6, "Number of output classes")
+tf.flags.DEFINE_integer("classes", 2, "Number of output classes")
 tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
 
-tf.flags.DEFINE_integer("num_neg_random", 1, "Number of negative random endings")
-tf.flags.DEFINE_integer("num_neg_back", 1, "Number of negative back endings")
+tf.flags.DEFINE_integer("ratio_neg_random", 5, "Ratio of negative random endings")
+tf.flags.DEFINE_integer("ratio_neg_back", 1, "Ratio of negative back endings")
 
 tf.flags.DEFINE_float("dropout_rate", 0.5, "Dropout rate")
 
@@ -61,9 +61,9 @@ tf.flags.DEFINE_integer("repeat_eval_dataset", 500, "Number of times to repeat t
 tf.flags.DEFINE_integer("shuffle_buffer_size", 5, "Buffer size for shuffling")
 tf.flags.DEFINE_integer("batch_size", 128, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 20, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 500, "Save model after this many steps (default: 100)")
-tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
+tf.flags.DEFINE_integer("num_checkpoints", 3, "Number of checkpoints to store (default: 5)")
 tf.flags.DEFINE_float("grad_clip", 10, "Gradient clip")
 
 tf.flags.DEFINE_string("loss_function", "SOFTMAX", "Loss function to use. Options: SIGMOID, SOFTMAX")
@@ -88,7 +88,9 @@ FLAGS = tf.flags.FLAGS
 FLAGS(sys.argv)
 
 if FLAGS.random_seed is not None:
-    tf.set_random_seed(FLAGS.random_seed)
+    # tf.set_random_seed(FLAGS.random_seed)
+    np.random.seed(FLAGS.random_seed)
+    print(f"Using random seed: {FLAGS.random_seed}")
 
 print("\nParameters:")
 for attr, value in sorted(FLAGS.__flags.items()):
@@ -121,6 +123,7 @@ print("eval sentences shape", np.shape(eval_sentences))
 eval_labels = np.load(FLAGS.data_sentences_eval_labels_path).astype(dtype=np.int32)
 eval_labels -= 1
 
+assert FLAGS.classes == 2, "Classes must be 2!"
 # print(eval_sentences[0:1], eval_labels[0:1])
 
 # sentence embeddings
@@ -140,14 +143,6 @@ with tf.Graph().as_default():
     randomPicker = generate_combined.RandomPicker(allSentences, len(sentences))
     backPicker = generate_combined.BackPicker()
 
-    pickers = []
-    for i in range(FLAGS.num_neg_random):
-        pickers.append(randomPicker)
-    for i in range(FLAGS.num_neg_back):
-        pickers.append(backPicker)
-
-    assert len(pickers) + 1 == FLAGS.classes, "Number of generated endings must match the number of classes minus one (the positive ending)!"
-
     # Placeholder tensor for input, which is just the sentences with ids
     input_x = tf.placeholder(tf.int32, [None, FLAGS.num_context_sentences + FLAGS.classes, FLAGS.sentence_length]) # [batch_size, sentence_length]
     input_y = tf.placeholder(tf.int32, [None])
@@ -157,7 +152,10 @@ with tf.Graph().as_default():
     handle = tf.placeholder(tf.string, shape=[])
 
     train_augment_config = {
-        'pickers': pickers,
+        'randomPicker': randomPicker,
+        'backPicker': backPicker,
+        'ratio_random': float(FLAGS.ratio_neg_random),
+        'ratio_back': float(FLAGS.ratio_neg_back)
     }
     train_augment_fn = functools.partial(generate_combined.augment_data, **train_augment_config)
 
@@ -202,6 +200,9 @@ with tf.Graph().as_default():
         intra_op_parallelism_threads=FLAGS.intra_op_parallelism_threads)
     sess = tf.Session(config=session_conf)
     with sess.as_default():
+
+        if FLAGS.random_seed is not None:
+            tf.set_random_seed(FLAGS.random_seed)
 
         # Build execution graph
         network = BiDirectional_LSTM(sess, vocab, next_batch_context_x)
