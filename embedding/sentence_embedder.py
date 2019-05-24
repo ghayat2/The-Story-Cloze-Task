@@ -1,12 +1,15 @@
+import sys
+
 import pandas
 
 import embedding.skipthoughts as skipthoughts
+import datetime
 from definitions import ROOT_DIR
 
 import numpy as np
 
 
-# https://github.com/ryankiros/skip-thoughts
+# Uses implementation from: https://github.com/ryankiros/skip-thoughts
 class SentenceEmbedder:
 
     def __init__(self, *args, **kwargs):
@@ -15,13 +18,7 @@ class SentenceEmbedder:
         self.encoder = skipthoughts.Encoder(model)
 
     def encode(self, data_to_encode, batch_size=1):
-        return self.encoder.encode(data_to_encode, batch_size=batch_size)
-
-    def similarity(self, vec1, vec2):
-        """Cosine similarity."""
-        vec1 = vec1.reshape([4800])
-        vec2 = vec2.reshape([4800])
-        return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+        return self.encoder.encode(data_to_encode, batch_size=batch_size, verbose=False)
 
     def generate_embedded_training_set(self, training_set_path, save_file_path):
         """
@@ -29,7 +26,7 @@ class SentenceEmbedder:
         :param training_set_path: Path to the training dataset.
         :param save_file_path: Path to save the results to.
         """
-        self._generate_embedded_set(training_set_path, save_file_path)
+        self._generate_embedded_set(training_set_path, save_file_path, 5, 2)
 
     def generate_embedded_eval_set(self, testing_set_path, save_file_path):
         """
@@ -37,13 +34,37 @@ class SentenceEmbedder:
         :param testing_set_path: Path to the testing dataset.
         :param save_file_path: Path to save the results to.
         """
-        self._generate_embedded_set(testing_set_path, save_file_path)
+        self._generate_embedded_set(testing_set_path, save_file_path, 6, 1)
 
-    def _generate_embedded_set(self, set_path, save_file_path):
-        eval_set = pandas.io.parsers.read_csv(set_path).values
+    @staticmethod
+    def similarity(vec1, vec2):
+        """Cosine similarity."""
+        vec1 = vec1.reshape((4800))
+        vec2 = vec2.reshape((4800))
+        return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+
+    def _generate_embedded_set(self, set_path, save_file_path, nb_encodings_per_story, start_ind):
+        dataset = pandas.io.parsers.read_csv(set_path).values
         embeddings = list()
-        for i in range(eval_set.shape[0]):
-            embeddings.append(self.encode(eval_set[i][1:-1]))
+        nbr_stories = dataset.shape[0]
+        sys.stdout.write("Starting to encode " + str(nbr_stories) + " stories\n")
+        batch_size = 1000
+        for i in range(int(nbr_stories / batch_size)):
+            a = datetime.datetime.now()
+            ubound = min(batch_size, nbr_stories - i * batch_size)
+            print(f"Encoding sentences {i*batch_size} to {i*batch_size+ubound-1}. {nbr_stories-i*batch_size} remaining.")
+            to_encode = np.array(dataset[i*batch_size:i*batch_size+ubound, start_ind:start_ind+nb_encodings_per_story])
+            to_encode = to_encode.flatten()
+            encodings = self.encoder.encode(
+                to_encode,
+                batch_size=ubound,
+                verbose=False
+            )
+            encodings = encodings.reshape((batch_size, nb_encodings_per_story, -1))
+            for encoding in encodings:
+                embeddings.append(encoding)
+            b = datetime.datetime.now()
+            sys.stdout.write(f"Time elapsed: {b-a}\n")
         np.save(save_file_path, np.array(embeddings))
 
 

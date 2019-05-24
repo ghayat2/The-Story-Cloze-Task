@@ -31,6 +31,7 @@ tf.flags.DEFINE_integer("random_seed", 42, "Random seed")
 tf.flags.DEFINE_string("unprocessed_training_dataset_path", "./data/train_stories.csv", "Path to the training dataset")
 tf.flags.DEFINE_string("skip_thoughts_train_embeddings_path", "./data/processed/train_stories_skip_thoughts.npy",
                        "Path to skip thoughts train sentence embeddings")
+tf.flags.DEFINE_string("unprocessed_eval_dataset_path", "./data/eval_stories.csv", "Path to the evaluation dataset")
 tf.flags.DEFINE_string("skip_thoughts_eval_embeddings_path", "./data/processed/eval_stories_skip_thoughts.npy",
                        "Path to skip thoughts evaluation sentence embeddings")
 
@@ -125,7 +126,7 @@ if FLAGS.use_skip_thoughts:
         if not skip_thoughts_eval_embeddings_file.is_file():
             embedder.generate_embedded_eval_set(
                 FLAGS.unprocessed_eval_dataset_path,
-                FLAGS.skip_thoughts_test_embeddings_path
+                FLAGS.skip_thoughts_eval_embeddings_path
             )
         print("Evaluation dataset with skip thoughts embeddings successfully created !")
     # Loads the training embedded sentences
@@ -154,7 +155,7 @@ def eval_shape():
 # six sentences, plus label
 eval_sentences = None
 if FLAGS.use_skip_thoughts:
-    eval_sentences = np.load(FLAGS.skip_thoughts_test_embeddings_path).astype(dtype=np.float32)
+    eval_sentences = np.load(FLAGS.skip_thoughts_eval_embeddings_path).astype(dtype=np.float32)
     eval_shape()
 else:
     eval_sentences = np.load(FLAGS.data_sentences_eval_path).astype(dtype=np.int32)
