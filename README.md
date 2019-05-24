@@ -12,6 +12,10 @@ named "data". Also, create a folder "data/processed/".
     - wget http://www.cs.toronto.edu/~rkiros/models/uni_skip.npz.pkl
     - wget http://www.cs.toronto.edu/~rkiros/models/bi_skip.npz
     - wget http://www.cs.toronto.edu/~rkiros/models/bi_skip.npz.pkl
+- When running on Leonhard, you'll need to install `punkt` manually by doing:
+    - python
+    - ``` import nltk```
+    - ``` nltk.download('punkt')```
 ## Project Structure
 
 - train.py -> Main train class
