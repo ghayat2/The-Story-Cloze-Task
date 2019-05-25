@@ -15,6 +15,10 @@ wget --user=nethz_username --ask-password https://polybox.ethz.ch/remote.php/web
 ```bash
 wget --user=nethz_username --ask-password https://polybox.ethz.ch/remote.php/webdav/nlu-project2/train_stories_skip_thoughts.tfrecords
 ```
+- If you're using word2vec with 100 dimensional word embeddings:
+```bash
+wget --user=nethz_username --ask-password https://polybox.ethz.ch/index.php/s/mFkjmC9EmPKDzg1/download
+```
 
 ## Project Structure
 

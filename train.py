@@ -389,7 +389,8 @@ with tf.Graph().as_default():
             print(f"{sanity}")
             print("shape context", context.shape)
             # print(f"{tl}")
-            print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
+            if not FLAGS.use_skip_thoughts:
+                print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
             print(f"labels {by}")
             print(f"predictions {eval}")
             time_str = datetime.datetime.now().isoformat()

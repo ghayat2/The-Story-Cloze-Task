@@ -99,5 +99,4 @@ def randomize_labels(sentences):
 
 
 def tensorize_dict(sentences):
-    tensors = tf.stack(list(sentences.values()))
-    return tensors
+    return tf.stack(list(sentences.values()))
