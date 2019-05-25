@@ -44,8 +44,10 @@ tf.flags.DEFINE_integer("num_context_sentences", 4, "Number of context sentences
 tf.flags.DEFINE_integer("classes", 6, "Number of output classes")
 tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
 
-tf.flags.DEFINE_integer("num_neg_random", 1, "Number of negative random endings")
-tf.flags.DEFINE_integer("num_neg_back", 1, "Number of negative back endings")
+tf.flags.DEFINE_integer("sentence_embedding_length", 4800, "Length of the sentence embeddings")
+
+tf.flags.DEFINE_integer("num_neg_random", 3, "Number of negative random endings")
+tf.flags.DEFINE_integer("num_neg_back", 2, "Number of negative back endings")
 
 tf.flags.DEFINE_float("dropout_rate", 0.5, "Dropout rate")
 
@@ -107,7 +109,7 @@ for attr, value in sorted(FLAGS.__flags.items()):
 print("")
 
 if FLAGS.use_skip_thoughts:
-    # Loads skip thoughts sentence embeddings
+    # Saves skip thoughts sentence embeddings if they don't already exist
     skip_thoughts_train_embeddings_file = Path(FLAGS.skip_thoughts_train_embeddings_path)
     skip_thoughts_eval_embeddings_file = Path(FLAGS.skip_thoughts_eval_embeddings_path)
     # If the embeddings haven't been saved in a file yet, compute and save them
@@ -161,6 +163,7 @@ eval_shape()
 eval_labels = np.load(FLAGS.data_sentences_eval_labels_path).astype(dtype=np.int32)
 eval_labels -= 1
 
+# Maps the endings to skip-thoughts embeddings
 # print(eval_sentences[0:1], eval_labels[0:1])
 
 # sentence embeddings
@@ -175,12 +178,16 @@ eval_labels -= 1
 # Create sesions
 # MODEL AND TRAINING PROCEDURE DEFINITION #
 with tf.Graph().as_default():
-
-    allSentences = tf.constant(np.squeeze(d.endings(sentences), axis=1))
-    randomPicker = generate_combined.RandomPicker(allSentences, len(sentences))
-    backPicker = generate_combined.BackPicker()
-
     pickers = []
+    if FLAGS.use_skip_thoughts:
+        # Custom pickers for skip thoughts since the standard ones aren't usable
+        randomPicker = generate_combined.EmbeddedRandomPicker(SkipThoughtsEmbedder.get_train_tf_dataset())
+        backPicker = generate_combined.EmbeddedBackPicker()
+    else:
+        allSentences = tf.constant(np.squeeze(d.endings(sentences), axis=1))
+        randomPicker = generate_combined.RandomPicker(allSentences, len(sentences))
+        backPicker = generate_combined.BackPicker()
+
     for i in range(FLAGS.num_neg_random):
         pickers.append(randomPicker)
     for i in range(FLAGS.num_neg_back):
@@ -204,6 +211,7 @@ with tf.Graph().as_default():
     if FLAGS.use_train_set:
         if FLAGS.use_skip_thoughts:
             train_dataset = generate_combined.get_skip_thoughts_data_iterator(
+                augment_fn=train_augment_fn,
                 batch_size=FLAGS.batch_size,
                 repeat_train_dataset=FLAGS.repeat_train_dataset
             )
@@ -252,7 +260,8 @@ with tf.Graph().as_default():
     print("--------new_batch_x------------", next_batch_context_x[0])
     print("--------new_batch_ending_y------------", next_batch_endings_y[0])
     num_sentences_total = FLAGS.num_context_sentences + FLAGS.classes
-    next_batch_context_x.set_shape([FLAGS.batch_size, num_sentences_total, FLAGS.sentence_length])
+    sentence_length = FLAGS.sentence_embedding_length if FLAGS.use_skip_thoughts else FLAGS.sentence_length
+    next_batch_context_x.set_shape([FLAGS.batch_size, num_sentences_total, sentence_length])
 
     train_init_op = iter.make_initializer(train_dataset, name='train_dataset')
     test_init_op = iter.make_initializer(test_dataset, name='test_dataset')

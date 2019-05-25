@@ -149,6 +149,7 @@ class SkipThoughtsEmbedder:
             sys.stdout.write(f"Time elapsed: {b - a}\n")
         np.save(save_file_path, np.array(embeddings))
 
+
 def example_encode():
     embedder = SkipThoughtsEmbedder()
     s1 = embedder.encode(["My name is not what you think"])
