@@ -3,15 +3,19 @@
 - Download the cloze datasets (eval and train) and place them in a folder
 named "data". Also, create a folder "data/processed/".
 - Run process_train.py
-- Run `python3 process_eval.py eval_stories.csv data/tokenizer.pickle`
-- Go to **data/embeddings/skip_thoughts/** and run:
-    - wget http://www.cs.toronto.edu/~rkiros/models/dictionary.txt
-    - wget http://www.cs.toronto.edu/~rkiros/models/utable.npy
-    - wget http://www.cs.toronto.edu/~rkiros/models/btable.npy
-    - wget http://www.cs.toronto.edu/~rkiros/models/uni_skip.npz
-    - wget http://www.cs.toronto.edu/~rkiros/models/uni_skip.npz.pkl
-    - wget http://www.cs.toronto.edu/~rkiros/models/bi_skip.npz
-    - wget http://www.cs.toronto.edu/~rkiros/models/bi_skip.npz.pkl
+- Run 
+```bash
+python3 process_eval.py eval_stories.csv data/tokenizer.pickle
+```
+- If you're using skip-thoughts, you need to download to you `data/processed/`
+folder these two files:
+```bash
+wget --user=nethz_username --ask-password https://polybox.ethz.ch/remote.php/webdav/nlu-project2/eval_stories_skip_thoughts.npy
+```
+```bash
+wget --user=nethz_username --ask-password https://polybox.ethz.ch/remote.php/webdav/nlu-project2/train_stories_skip_thoughts.npy
+```
+
 ## Project Structure
 
 - train.py -> Main train class
