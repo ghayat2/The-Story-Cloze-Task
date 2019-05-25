@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import data_utils as d
-from embedding.sentence_embedder import SentenceEmbedder
+from embedding.sentence_embedder import SkipThoughtsEmbedder
 from models.bidirectional_lstm import BiDirectional_LSTM
 import generate_combined
 import losses
@@ -112,7 +112,7 @@ if FLAGS.use_skip_thoughts:
     skip_thoughts_eval_embeddings_file = Path(FLAGS.skip_thoughts_eval_embeddings_path)
     # If the embeddings haven't been saved in a file yet, compute and save them
     if (not skip_thoughts_train_embeddings_file.is_file()) or (not skip_thoughts_eval_embeddings_file.is_file()):
-        embedder = SentenceEmbedder()
+        embedder = SkipThoughtsEmbedder()
         # Creates the embeddings for the training dataset
         print("Generating skip thoughts training sentence embeddings...")
         if not skip_thoughts_train_embeddings_file.is_file():
@@ -129,13 +129,11 @@ if FLAGS.use_skip_thoughts:
                 FLAGS.skip_thoughts_eval_embeddings_path
             )
         print("Evaluation dataset with skip thoughts embeddings successfully created !")
-    # Loads the training embedded sentences
-    sentences = np.load(FLAGS.skip_thoughts_train_embeddings_path).astype(np.float32)
-else:
-    # Load sentences from numpy file, with ids but not embedded
-    sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, sentence_length (5), vocab_size (30)]
-    padding_sentences = np.zeros((sentences.shape[0], FLAGS.classes -1, sentences.shape[2]), dtype=np.int32)
-    sentences = np.concatenate([sentences, padding_sentences], axis=1)
+
+# Load sentences from numpy file, with ids but not embedded
+sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, sentence_length (5), vocab_size (30)]
+padding_sentences = np.zeros((sentences.shape[0], FLAGS.classes -1, sentences.shape[2]), dtype=np.int32)
+sentences = np.concatenate([sentences, padding_sentences], axis=1)
 
 # print(sentences[0])
 
@@ -153,17 +151,12 @@ def eval_shape():
 
 # eval sentences
 # six sentences, plus label
-eval_sentences = None
-if FLAGS.use_skip_thoughts:
-    eval_sentences = np.load(FLAGS.skip_thoughts_eval_embeddings_path).astype(dtype=np.float32)
-    eval_shape()
-else:
-    eval_sentences = np.load(FLAGS.data_sentences_eval_path).astype(dtype=np.int32)
-    eval_shape()
-    if FLAGS.classes > 2:
-        padding_sentences = np.zeros((eval_sentences.shape[0], FLAGS.classes -2, eval_sentences.shape[2]), dtype=np.int32)
-        eval_sentences = np.concatenate([eval_sentences, padding_sentences], axis=1)
-    eval_shape()
+eval_sentences = np.load(FLAGS.data_sentences_eval_path).astype(dtype=np.int32)
+eval_shape()
+if FLAGS.classes > 2:
+    padding_sentences = np.zeros((eval_sentences.shape[0], FLAGS.classes -2, eval_sentences.shape[2]), dtype=np.int32)
+    eval_sentences = np.concatenate([eval_sentences, padding_sentences], axis=1)
+eval_shape()
 
 eval_labels = np.load(FLAGS.data_sentences_eval_labels_path).astype(dtype=np.int32)
 eval_labels -= 1
@@ -209,20 +202,42 @@ with tf.Graph().as_default():
     train_augment_fn = functools.partial(generate_combined.augment_data, **train_augment_config)
 
     if FLAGS.use_train_set:
-        train_dataset = generate_combined.get_data_iterator(input_x,
-                                                     augment_fn=train_augment_fn,
-                                                     batch_size=FLAGS.batch_size,
-                                                     repeat_train_dataset=FLAGS.repeat_train_dataset)
+        if FLAGS.use_skip_thoughts:
+            train_dataset = generate_combined.get_skip_thoughts_data_iterator(
+                batch_size=FLAGS.batch_size,
+                repeat_train_dataset=FLAGS.repeat_train_dataset
+            )
+        else:
+            train_dataset = generate_combined.get_data_iterator(
+                input_x,
+                augment_fn=train_augment_fn,
+                batch_size=FLAGS.batch_size,
+                repeat_train_dataset=FLAGS.repeat_train_dataset
+            )
     else:
-        train_dataset = generate_combined.get_eval_iterator(input_x,
+        if FLAGS.use_skip_thoughts:
+            train_dataset = generate_combined.get_skip_thoughts_eval_iterator(
+                labels=input_y,
+                batch_size=FLAGS.batch_size,
+                repeat_eval_dataset=FLAGS.repeat_train_dataset
+            )
+        else:
+            train_dataset = generate_combined.get_eval_iterator(
+                input_x,
+                input_y,
+                batch_size=FLAGS.batch_size,
+                repeat_eval_dataset=FLAGS.repeat_train_dataset
+            )
+
+    if FLAGS.use_skip_thoughts:
+        test_dataset = generate_combined.get_skip_thoughts_eval_iterator(
+            input_y, batch_size=FLAGS.batch_size, repeat_eval_dataset=FLAGS.repeat_eval_dataset
+        )
+    else:
+        test_dataset = generate_combined.get_eval_iterator(input_x,
                                                          input_y,
                                                  batch_size=FLAGS.batch_size,
-                                                 repeat_eval_dataset=FLAGS.repeat_train_dataset)
-#
-    test_dataset = generate_combined.get_eval_iterator(input_x,
-                                                     input_y,
-                                             batch_size=FLAGS.batch_size,
-                                             repeat_eval_dataset=FLAGS.repeat_eval_dataset)
+                                                 repeat_eval_dataset=FLAGS.repeat_eval_dataset)
     
     print("Test output types", test_dataset.output_types)
 

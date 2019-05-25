@@ -71,9 +71,22 @@ def get_data_iterator(sentences,
 
     return dataset
 
-def transform_labels_onehot(sentences, labels):
-    one_hot = tf.one_hot(labels, FLAGS.classes, dtype=tf.int32)
+
+def get_skip_thoughts_data_iterator(threads=5,
+                                    batch_size=1,
+                                    repeat_train_dataset=5):
+    from embedding.sentence_embedder import SkipThoughtsEmbedder
+    return SkipThoughtsEmbedder.get_train_tf_dataset()\
+        .map(d.split_sentences, num_parallel_calls=5)\
+        .map(functools.partial(augment_data), num_parallel_calls=threads)\
+        .shuffle(5000).repeat(repeat_train_dataset)\
+        .batch(batch_size, drop_remainder=True)
+
+
+def transform_labels_onehot(sentences, labels, threads=5):
+    one_hot = tf.one_hot(labels, FLAGS.classes, dtype=tf.int32).map(d.split_sentences, num_parallel_calls=threads)
     return sentences, one_hot
+
 
 def get_eval_iterator(sentences, labels,
                         threads=5,
@@ -87,3 +100,13 @@ def get_eval_iterator(sentences, labels,
         .batch(batch_size, drop_remainder=True) \
 
     return dataset
+
+
+def get_skip_thoughts_eval_iterator(labels, threads=5, batch_size=1, repeat_eval_dataset=5):
+    from embedding.sentence_embedder import SkipThoughtsEmbedder
+    eval_dataset = SkipThoughtsEmbedder.get_eval_tf_dataset()
+    # Zips the embeddings with the labels
+    return tf.data.Dataset.zip((eval_dataset, labels))\
+        .shuffle(buffer_size=5000)\
+        .repeat(repeat_eval_dataset)\
+        .batch(batch_size, drop_remainder=True)

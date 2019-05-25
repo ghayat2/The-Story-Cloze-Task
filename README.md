@@ -10,10 +10,10 @@ python3 process_eval.py eval_stories.csv data/tokenizer.pickle
 - If you're using skip-thoughts, you need to download to you `data/processed/`
 folder these two files:
 ```bash
-wget --user=nethz_username --ask-password https://polybox.ethz.ch/remote.php/webdav/nlu-project2/eval_stories_skip_thoughts.npy
+wget --user=nethz_username --ask-password https://polybox.ethz.ch/remote.php/webdav/nlu-project2/eval_stories_skip_thoughts.tfrecords
 ```
 ```bash
-wget --user=nethz_username --ask-password https://polybox.ethz.ch/remote.php/webdav/nlu-project2/train_stories_skip_thoughts.npy
+wget --user=nethz_username --ask-password https://polybox.ethz.ch/remote.php/webdav/nlu-project2/train_stories_skip_thoughts.tfrecords
 ```
 
 ## Project Structure

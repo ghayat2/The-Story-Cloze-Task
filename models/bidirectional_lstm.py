@@ -1,7 +1,7 @@
 import tensorflow as tf
 from typing import Tuple
 import data_utils
-from embedding.sentence_embedder import SentenceEmbedder
+from embedding.sentence_embedder import SkipThoughtsEmbedder
 
 FLAGS = tf.flags.FLAGS
 
