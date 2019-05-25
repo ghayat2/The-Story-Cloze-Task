@@ -44,7 +44,8 @@ class EmbeddedRandomPicker(Picker):
 
     def pick(self, context, N=1):
         return tf.stack(
-            [tf.data.experimental.sample_from_datasets([self.tf_dataset]).make_one_shot_iterator().get_next()["sentence5"]]
+            [tf.data.experimental.sample_from_datasets([self.tf_dataset]).make_one_shot_iterator().get_next()[
+                 "sentence5"]]
         )
 
 
@@ -54,23 +55,31 @@ class EmbeddedBackPicker(Picker):
         return tf.gather(context, rand_index)
 
 
-def augment_data(context, endings, pickers=()):
-    """
-    Augment the data
-    """
+def augment_data(context, endings,
+                 randomPicker,
+                 backPicker,
+                 ratio_random = 0,
+                 ratio_back = 0): # Augment the data
+
     ending1 = endings[0] # set, correct ending
     #ending2 = endings[1] # not set, all 0s
 
     print("Ending", endings)
-    allGenerated = []
-    for picker in pickers:
-        generatedSentences = picker.pick(context, N = 1)
-        allGenerated.append(generatedSentences)
-        print("Random", generatedSentences)
+    if ratio_random > 0 and ratio_back == 0:
+        generatedSentence = randomPicker.pick(context, N = 1)
+    elif ratio_back > 0 and ratio_random == 0:
+        generatedSentence = backPicker.pick(context, N = 1)
+    else:
+        prob = tf.random.uniform([1], 0, 1, dtype=tf.float32)
+        print(f"Picking both. Ratio for random: {ratio_random / (ratio_random + ratio_back)}")
+        generatedSentence = tf.cond(tf.less(prob[0], ratio_random / (ratio_random + ratio_back)),
+                                                       lambda: randomPicker.pick(context, N = 1),
+                                                       lambda: backPicker.pick(context, N = 1)
+                                                       )
 
-    allGenerated = tf.concat(allGenerated, axis=0)
+    print("Random", generatedSentence)
 
-    all_endings = tf.concat([tf.expand_dims(ending1, axis = 0), allGenerated], axis = 0)
+    all_endings = tf.concat([tf.expand_dims(ending1, axis = 0), generatedSentence], axis = 0)
     print("All Endings", all_endings)
 
     randomized_endings, labels = d.randomize_labels(all_endings)
@@ -89,10 +98,10 @@ def get_data_iterator(sentences,
 
     # Create dataset from image and label paths
     dataset = tf.data.Dataset.from_tensor_slices(sentences) \
+        .repeat(repeat_train_dataset) \
         .map(d.split_sentences, num_parallel_calls=threads) \
         .map(augment_fn, num_parallel_calls=threads) \
         .shuffle(buffer_size=5000) \
-        .repeat(repeat_train_dataset) \
         .batch(batch_size, drop_remainder=True)
 
     return dataset
@@ -103,7 +112,8 @@ def get_skip_thoughts_data_iterator(augment_fn, threads=5, batch_size=1, repeat_
     return SkipThoughtsEmbedder.get_train_tf_dataset()\
         .map(d.split_skip_thoughts_sentences, num_parallel_calls=5)\
         .map(augment_fn, num_parallel_calls=threads)\
-        .shuffle(5000).repeat(repeat_train_dataset)\
+        .repeat(repeat_train_dataset)\
+        .shuffle(5000)\
         .batch(batch_size, drop_remainder=True)
 
 
