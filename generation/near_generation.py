@@ -1,3 +1,6 @@
+import pandas
+
+from definitions import ROOT_DIR
 from embedding.sentence_embedder import SentenceEmbedder
 from generation.ending_generator import EndingGenerator
 import numpy as np
@@ -5,22 +8,26 @@ import numpy as np
 
 class NearGeneration(EndingGenerator):
 
-    def __init__(self, sentence_embeddings, embeddings_hashable=False, *args, **kwargs):
+    def __init__(self,
+                 sentence_embeddings,
+                 embeddings_hashable=False,
+                 distance_function=lambda x1, x2: np.linalg.norm(np.array(x1) - np.array(x2)),
+                 *args, **kwargs):
         """
         :param sentence_embeddings: A vector of sentence embeddings of any length.
         :param embeddings_hashable: If the sentence embeddings are hashable python objects. If not, they'll be transformed to
         tuples on the fly.
         """
+        super(NearGeneration, self).__init__(*args, **kwargs)
         self.sentence_embeddings = sentence_embeddings
         self.distances = {}
         self.embeddings_hashable = embeddings_hashable
         self.encoder = None
-        super(NearGeneration, self).__init__(*args, **kwargs)
+        self.dist_function = distance_function
 
     def generate_ending(self,
                         correct_ending,
-                        dist_function=lambda x1, x2: np.linalg.norm(np.array(x1)-np.array(x2)),
-                        optimal_endings_distance = 1.0,
+                        optimal_endings_distance=0.91524,
                         is_encoded=True,
                         is_hashable=False):
         """
@@ -52,7 +59,7 @@ class NearGeneration(EndingGenerator):
             if sentence_embedding != correct_ending:
                 if sentence_embedding not in ending_distances:
                     # Computes distance from correct ending to current sentence embedding
-                    ending_distances[sentence_embedding] = dist_function(correct_ending, sentence_embedding)
+                    ending_distances[sentence_embedding] = self.dist_function(correct_ending, sentence_embedding)
                 # l1 norm between optimal distance and the actual distance for this sentence embedding
                 distance_to_optimal = abs(optimal_endings_distance - ending_distances[sentence_embedding])
                 # Takes the vector having the closest to optimal distance
@@ -60,6 +67,20 @@ class NearGeneration(EndingGenerator):
                     closest_to_optimal = sentence_embedding
                     best_dist_from_optimal = distance_to_optimal
         return closest_to_optimal
+
+    def get_evaluation_set_avg_distance(self):
+        eval_set = pandas.read_csv(ROOT_DIR + '/data/eval_stories.csv', header=0)
+        avg_distance = 0.0
+        set_size = eval_set.shape[0]
+        for i, sentences in eval_set.iterrows():
+            dist = self.dist_function(*self._get_encoder().encode([sentences["RandomFifthSentenceQuiz1"],
+                                                                    sentences["RandomFifthSentenceQuiz2"]]))
+            # dist = self.dist_function(
+            #     self._get_encoder().encode([sentences["RandomFifthSentenceQuiz1"]])[0],
+            #     self._get_encoder().encode([sentences["RandomFifthSentenceQuiz2"]])[0]
+            # )
+            avg_distance += dist / set_size
+        return avg_distance
 
     def _get_encoder(self):
         if self.encoder is None:
@@ -83,4 +104,12 @@ def test_distances():
     for i in range(len(embedded_sentences)):
         if abs(sum(embedded_sentences[i]) - sum(false_ending)) < 1e-2:
             print(sentences[i])
+
+
+def test_avg_distance():
+    ng = NearGeneration(sentence_embeddings=None)
+    print(ng.get_evaluation_set_avg_distance()) # prints 0.9152397129033607
+
+
+test_avg_distance()
 
