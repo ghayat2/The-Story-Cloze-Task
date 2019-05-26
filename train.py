@@ -408,7 +408,8 @@ with tf.Graph().as_default():
             fetches = [global_step, dev_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x]
             step, summaries, loss, accuracy, by, eval, context = sess.run(fetches, feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
+            if not FLAGS.use_skip_thoughts:
+                print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
             print(f"labels {by}")
             print(f"predictions {eval}")
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
