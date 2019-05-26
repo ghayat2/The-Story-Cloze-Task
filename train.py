@@ -43,6 +43,9 @@ tf.flags.DEFINE_float("dropout_rate", 0.5, "Dropout rate")
 tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
 tf.flags.DEFINE_string("path_embeddings", "data/wordembeddings-dim100.word2vec", "Path to the word2vec embeddings")
 
+tf.flags.DEFINE_string('attention', 'add', 'Attention type (add ~ Bahdanau, mult ~ Luong, None). Only for Roemmele ''models.')
+tf.flags.DEFINE_integer('attention_size', 1000, 'Attention size.')
+
 
 
 tf.flags.DEFINE_integer("hidden_layer_size", 100, "Size of hidden layer")
@@ -70,7 +73,6 @@ tf.flags.DEFINE_string("loss_function", "SOFTMAX", "Loss function to use. Option
 tf.flags.DEFINE_string("optimizer", "ADAM", "Optimizer to use. Options: ADAM, RMS")
 
 tf.flags.DEFINE_string("job_name", None, "Custom job name")
-
 
 # Tensorflow Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -205,7 +207,7 @@ with tf.Graph().as_default():
             tf.set_random_seed(FLAGS.random_seed)
 
         # Build execution graph
-        network = BiDirectional_LSTM(sess, vocab, next_batch_context_x)
+        network = BiDirectional_LSTM(sess, vocab, next_batch_context_x, FLAGS.attention, FLAGS.attention_size)
 
         # train_logits: [batch_size]
         # eval_predictions: [batch_size] (index of prediction
