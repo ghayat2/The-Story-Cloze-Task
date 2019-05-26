@@ -1,0 +1,86 @@
+from embedding.sentence_embedder import SentenceEmbedder
+from generation.ending_generator import EndingGenerator
+import numpy as np
+
+
+class NearGeneration(EndingGenerator):
+
+    def __init__(self, sentence_embeddings, embeddings_hashable=False, *args, **kwargs):
+        """
+        :param sentence_embeddings: A vector of sentence embeddings of any length.
+        :param embeddings_hashable: If the sentence embeddings are hashable python objects. If not, they'll be transformed to
+        tuples on the fly.
+        """
+        self.sentence_embeddings = sentence_embeddings
+        self.distances = {}
+        self.embeddings_hashable = embeddings_hashable
+        self.encoder = None
+        super(NearGeneration, self).__init__(*args, **kwargs)
+
+    def generate_ending(self,
+                        correct_ending,
+                        dist_function=lambda x1, x2: np.linalg.norm(np.array(x1)-np.array(x2)),
+                        optimal_endings_distance = 1.0,
+                        is_encoded=True,
+                        is_hashable=False):
+        """
+        :param correct_ending: A correct story ending.
+        :param dist_function: A distance function to apply to the embeddings.
+        :param optimal_endings_distance: The ideal distance between :correct_ending and the returned generated ending.
+        :param is_encoded: If correct_ending is already an embedded vector. If this is false, then skip thoughts
+        is used to encode it.
+        :param is_hashable: If correct_ending is hashable
+        :return: An ending from self.sentence_embeddings that is as close as possible to the given optima distance.
+        """
+        # Embed the ending if it isn't already
+        if not is_encoded:
+            correct_ending = self._get_encoder().encode(correct_ending)[0]
+        # Ensures the ending is a hashable object
+        if not is_encoded or not is_hashable:
+            correct_ending = tuple(correct_ending)
+        # Checks if we have already calculated some distances for this ending
+        if not(correct_ending in self.distances):
+            self.distances[correct_ending] = {}
+        # Retrieves the distances
+        ending_distances = self.distances[correct_ending]
+        # Starts calculating or simply retrieving the distances if they've already been computed
+        closest_to_optimal = None
+        best_dist_from_optimal = None
+        for sentence_embedding in self.sentence_embeddings:
+            if not self.embeddings_hashable:
+                sentence_embedding = tuple(sentence_embedding)
+            if sentence_embedding != correct_ending:
+                if sentence_embedding not in ending_distances:
+                    # Computes distance from correct ending to current sentence embedding
+                    ending_distances[sentence_embedding] = dist_function(correct_ending, sentence_embedding)
+                # l1 norm between optimal distance and the actual distance for this sentence embedding
+                distance_to_optimal = abs(optimal_endings_distance - ending_distances[sentence_embedding])
+                # Takes the vector having the closest to optimal distance
+                if (closest_to_optimal is None) or (best_dist_from_optimal is None) or (distance_to_optimal < best_dist_from_optimal):
+                    closest_to_optimal = sentence_embedding
+                    best_dist_from_optimal = distance_to_optimal
+        return closest_to_optimal
+
+    def _get_encoder(self):
+        if self.encoder is None:
+            self.encoder = SentenceEmbedder()
+        return self.encoder
+
+
+def test_distances():
+    sentences = [
+        "Tyler has released a new album called Igor.",
+        "I've been listening to it all the time ever since.",
+        "I like strawberries.",
+        "Pizzas sometimes come with pineapple."
+    ]
+    embedder = SentenceEmbedder()
+    embedded_sentences = embedder.encode(sentences)
+    generator = NearGeneration(
+        embedded_sentences
+    )
+    false_ending = generator.generate_ending(embedded_sentences[0])
+    for i in range(len(embedded_sentences)):
+        if abs(sum(embedded_sentences[i]) - sum(false_ending)) < 1e-2:
+            print(sentences[i])
+

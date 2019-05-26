@@ -1,5 +1,9 @@
 # nlu-project2
 ## Setup
+- Download the cloze datasets (eval and train) and place them in a folder
+named "data". Also, create a folder "data/processed/".
+- Run process_train.py
+- Run `python3 process_eval.py eval_stories.csv tokenizer.pickle`
 - Go to **data/embeddings/skip_thoughts/** and run:
     - wget http://www.cs.toronto.edu/~rkiros/models/dictionary.txt
     - wget http://www.cs.toronto.edu/~rkiros/models/utable.npy
@@ -8,6 +12,10 @@
     - wget http://www.cs.toronto.edu/~rkiros/models/uni_skip.npz.pkl
     - wget http://www.cs.toronto.edu/~rkiros/models/bi_skip.npz
     - wget http://www.cs.toronto.edu/~rkiros/models/bi_skip.npz.pkl
+- When running on Leonhard, you'll need to install `punkt` manually by doing:
+    - python
+    - ``` import nltk```
+    - ``` nltk.download('punkt')```
 ## Project Structure
 
 - train.py -> Main train class
