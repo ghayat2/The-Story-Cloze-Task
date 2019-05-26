@@ -51,7 +51,7 @@ tf.flags.DEFINE_integer("num_neg_back", 2, "Number of negative back endings")
 tf.flags.DEFINE_integer("ratio_neg_random", 5, "Ratio of negative random endings")
 tf.flags.DEFINE_integer("ratio_neg_back", 1, "Ratio of negative back endings")
 
-tf.flags.DEFINE_float("dropout_rate", 0.5, "Dropout rate")
+tf.flags.DEFINE_float("dropout_rate", 0.7, "Dropout rate")
 
 
 tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
@@ -185,7 +185,7 @@ with tf.Graph().as_default():
     pickers = []
     if FLAGS.use_skip_thoughts:
         # Custom pickers for skip thoughts since the standard ones aren't usable
-        randomPicker = generate_combined.EmbeddedRandomPicker(SkipThoughtsEmbedder.get_train_tf_dataset())
+        randomPicker = generate_combined.EmbeddedRandomPicker(SkipThoughtsEmbedder.get_train_tf_dataset().repeat(FLAGS.repeat_train_dataset))
         backPicker = generate_combined.EmbeddedBackPicker()
     else:
         allSentences = tf.constant(np.squeeze(d.endings(sentences), axis=1))
