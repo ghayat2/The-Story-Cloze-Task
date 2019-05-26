@@ -29,10 +29,10 @@ tf.flags.DEFINE_bool("use_train_set", True, "Whether to use train set, use eval 
 tf.flags.DEFINE_integer("random_seed", 42, "Random seed")
 
 tf.flags.DEFINE_string("unprocessed_training_dataset_path", "./data/train_stories.csv", "Path to the training dataset")
-tf.flags.DEFINE_string("skip_thoughts_train_embeddings_path", "./data/processed/train_stories_skip_thoughts.npy",
+tf.flags.DEFINE_string("skip_thoughts_train_embeddings_path", "./data/processed/train_stories_skip_thoughts.tfrecords",
                        "Path to skip thoughts train sentence embeddings")
 tf.flags.DEFINE_string("unprocessed_eval_dataset_path", "./data/eval_stories.csv", "Path to the evaluation dataset")
-tf.flags.DEFINE_string("skip_thoughts_eval_embeddings_path", "./data/processed/eval_stories_skip_thoughts.npy",
+tf.flags.DEFINE_string("skip_thoughts_eval_embeddings_path", "./data/processed/eval_stories_skip_thoughts.tfrecords",
                        "Path to skip thoughts evaluation sentence embeddings")
 
 
