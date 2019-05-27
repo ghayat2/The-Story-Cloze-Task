@@ -69,7 +69,6 @@ tf.flags.DEFINE_string("rnn_cell", "LSTM", "Cell type.")
 tf.flags.DEFINE_integer("rnn_cell_size", 1000, "RNN cell size")
 
 
-# Augmenting parameters
 
 
 # Training parameters
