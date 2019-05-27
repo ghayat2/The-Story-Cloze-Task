@@ -1,4 +1,7 @@
+from pathlib import Path
+
 import data_utils as d
+from embedding.sentence_embedder import SkipThoughtsEmbedder
 from models.bidirectional_lstm import BiDirectional_LSTM
 import generate_combined
 import losses
@@ -25,6 +28,13 @@ tf.flags.DEFINE_bool("use_train_set", True, "Whether to use train set, use eval 
 
 tf.flags.DEFINE_integer("random_seed", 42, "Random seed")
 
+tf.flags.DEFINE_string("unprocessed_training_dataset_path", "./data/train_stories.csv", "Path to the training dataset")
+tf.flags.DEFINE_string("skip_thoughts_train_embeddings_path", "./data/processed/train_stories_skip_thoughts.tfrecords",
+                       "Path to skip thoughts train sentence embeddings")
+tf.flags.DEFINE_string("unprocessed_eval_dataset_path", "./data/eval_stories.csv", "Path to the evaluation dataset")
+tf.flags.DEFINE_string("skip_thoughts_eval_embeddings_path", "./data/processed/eval_stories_skip_thoughts.tfrecords",
+                       "Path to skip thoughts evaluation sentence embeddings")
+
 
 # Model parameters
 tf.flags.DEFINE_integer("num_sentences_train", 5, "Number of sentences in training set (default: 5)")
@@ -34,14 +44,22 @@ tf.flags.DEFINE_integer("num_context_sentences", 4, "Number of context sentences
 tf.flags.DEFINE_integer("classes", 2, "Number of output classes")
 tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
 
+tf.flags.DEFINE_integer("sentence_embedding_length", 4800, "Length of the sentence embeddings")
+
+tf.flags.DEFINE_integer("num_neg_random", 3, "Number of negative random endings")
+tf.flags.DEFINE_integer("num_neg_back", 2, "Number of negative back endings")
 tf.flags.DEFINE_integer("ratio_neg_random", 5, "Ratio of negative random endings")
 tf.flags.DEFINE_integer("ratio_neg_back", 1, "Ratio of negative back endings")
 
-tf.flags.DEFINE_float("dropout_rate", 0.5, "Dropout rate")
+tf.flags.DEFINE_float("dropout_rate", 0.7, "Dropout rate")
 
 
 tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
 tf.flags.DEFINE_string("path_embeddings", "data/wordembeddings-dim100.word2vec", "Path to the word2vec embeddings")
+tf.flags.DEFINE_bool("use_skip_thoughts", True, "Whether we use skip thoughts for sentences embedding")
+
+tf.flags.DEFINE_string('attention', 'add', 'Attention type (add ~ Bahdanau, mult ~ Luong, None). Only for Roemmele ''models.')
+tf.flags.DEFINE_integer('attention_size', 1000, 'Attention size.')
 
 
 
@@ -71,7 +89,6 @@ tf.flags.DEFINE_string("optimizer", "ADAM", "Optimizer to use. Options: ADAM, RM
 
 tf.flags.DEFINE_string("job_name", None, "Custom job name")
 
-
 # Tensorflow Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
@@ -97,6 +114,30 @@ for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr.upper(), value.value))
 print("")
 
+if FLAGS.use_skip_thoughts:
+    # Saves skip thoughts sentence embeddings if they don't already exist
+    skip_thoughts_train_embeddings_file = Path(FLAGS.skip_thoughts_train_embeddings_path)
+    skip_thoughts_eval_embeddings_file = Path(FLAGS.skip_thoughts_eval_embeddings_path)
+    # If the embeddings haven't been saved in a file yet, compute and save them
+    if (not skip_thoughts_train_embeddings_file.is_file()) or (not skip_thoughts_eval_embeddings_file.is_file()):
+        embedder = SkipThoughtsEmbedder()
+        # Creates the embeddings for the training dataset
+        print("Generating skip thoughts training sentence embeddings...")
+        if not skip_thoughts_train_embeddings_file.is_file():
+            embedder.generate_embedded_training_set(
+                FLAGS.unprocessed_training_dataset_path,
+                FLAGS.skip_thoughts_train_embeddings_path
+            )
+        # Creates the embeddings for the testing dataset
+        print("Training dataset with skip thoughts embeddings successfully created !")
+        print("Generating skip thoughts evaluation sentence embeddings")
+        if not skip_thoughts_eval_embeddings_file.is_file():
+            embedder.generate_embedded_eval_set(
+                FLAGS.unprocessed_eval_dataset_path,
+                FLAGS.skip_thoughts_eval_embeddings_path
+            )
+        print("Evaluation dataset with skip thoughts embeddings successfully created !")
+
 # Load sentences from numpy file, with ids but not embedded
 sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, sentence_length (5), vocab_size (30)]
 padding_sentences = np.zeros((sentences.shape[0], FLAGS.classes -1, sentences.shape[2]), dtype=np.int32)
@@ -111,14 +152,19 @@ vocab = np.load(FLAGS.data_sentences_vocab_path, allow_pickle=True)  # vocab con
 vocabLookup = dict((v,k) for k,v in vocab.item().items()) # flip our vocab dict so we can easy lookup [id: symbol]
 vocabLookup[0] = '<pad>'
 
+
+def eval_shape():
+    print("eval sentences shape", np.shape(eval_sentences))
+
+
 # eval sentences
 # six sentences, plus label
 eval_sentences = np.load(FLAGS.data_sentences_eval_path).astype(dtype=np.int32)
-print("eval sentences shape", np.shape(eval_sentences))
+eval_shape()
 if FLAGS.classes > 2:
     padding_sentences = np.zeros((eval_sentences.shape[0], FLAGS.classes -2, eval_sentences.shape[2]), dtype=np.int32)
     eval_sentences = np.concatenate([eval_sentences, padding_sentences], axis=1)
-print("eval sentences shape", np.shape(eval_sentences))
+eval_shape()
 
 eval_labels = np.load(FLAGS.data_sentences_eval_labels_path).astype(dtype=np.int32)
 eval_labels -= 1
@@ -138,10 +184,15 @@ assert FLAGS.classes == 2, "Classes must be 2!"
 # Create sesions
 # MODEL AND TRAINING PROCEDURE DEFINITION #
 with tf.Graph().as_default():
-
-    allSentences = tf.constant(np.squeeze(d.endings(sentences), axis=1))
-    randomPicker = generate_combined.RandomPicker(allSentences, len(sentences))
-    backPicker = generate_combined.BackPicker()
+    pickers = []
+    if FLAGS.use_skip_thoughts:
+        # Custom pickers for skip thoughts since the standard ones aren't usable
+        randomPicker = generate_combined.EmbeddedRandomPicker(SkipThoughtsEmbedder.get_train_tf_dataset().repeat(FLAGS.repeat_train_dataset))
+        backPicker = generate_combined.EmbeddedBackPicker()
+    else:
+        allSentences = tf.constant(np.squeeze(d.endings(sentences), axis=1))
+        randomPicker = generate_combined.RandomPicker(allSentences, len(sentences))
+        backPicker = generate_combined.BackPicker()
 
     # Placeholder tensor for input, which is just the sentences with ids
     input_x = tf.placeholder(tf.int32, [None, FLAGS.num_context_sentences + FLAGS.classes, FLAGS.sentence_length]) # [batch_size, sentence_length]
@@ -160,20 +211,43 @@ with tf.Graph().as_default():
     train_augment_fn = functools.partial(generate_combined.augment_data, **train_augment_config)
 
     if FLAGS.use_train_set:
-        train_dataset = generate_combined.get_data_iterator(input_x,
-                                                     augment_fn=train_augment_fn,
-                                                     batch_size=FLAGS.batch_size,
-                                                     repeat_train_dataset=FLAGS.repeat_train_dataset)
+        if FLAGS.use_skip_thoughts:
+            train_dataset = generate_combined.get_skip_thoughts_data_iterator(
+                augment_fn=train_augment_fn,
+                batch_size=FLAGS.batch_size,
+                repeat_train_dataset=FLAGS.repeat_train_dataset
+            )
+        else:
+            train_dataset = generate_combined.get_data_iterator(
+                input_x,
+                augment_fn=train_augment_fn,
+                batch_size=FLAGS.batch_size,
+                repeat_train_dataset=FLAGS.repeat_train_dataset
+            )
     else:
-        train_dataset = generate_combined.get_eval_iterator(input_x,
+        if FLAGS.use_skip_thoughts:
+            train_dataset = generate_combined.get_skip_thoughts_eval_iterator(
+                labels=input_y,
+                batch_size=FLAGS.batch_size,
+                repeat_eval_dataset=FLAGS.repeat_train_dataset
+            )
+        else:
+            train_dataset = generate_combined.get_eval_iterator(
+                input_x,
+                input_y,
+                batch_size=FLAGS.batch_size,
+                repeat_eval_dataset=FLAGS.repeat_train_dataset
+            )
+
+    if FLAGS.use_skip_thoughts:
+        test_dataset = generate_combined.get_skip_thoughts_eval_iterator(
+            input_y, batch_size=FLAGS.batch_size, repeat_eval_dataset=FLAGS.repeat_eval_dataset
+        )
+    else:
+        test_dataset = generate_combined.get_eval_iterator(input_x,
                                                          input_y,
                                                  batch_size=FLAGS.batch_size,
-                                                 repeat_eval_dataset=FLAGS.repeat_train_dataset)
-#
-    test_dataset = generate_combined.get_eval_iterator(input_x,
-                                                     input_y,
-                                             batch_size=FLAGS.batch_size,
-                                             repeat_eval_dataset=FLAGS.repeat_eval_dataset)
+                                                 repeat_eval_dataset=FLAGS.repeat_eval_dataset)
     
     print("Test output types", test_dataset.output_types)
 
@@ -188,7 +262,8 @@ with tf.Graph().as_default():
     print("--------new_batch_x------------", next_batch_context_x[0])
     print("--------new_batch_ending_y------------", next_batch_endings_y[0])
     num_sentences_total = FLAGS.num_context_sentences + FLAGS.classes
-    next_batch_context_x.set_shape([FLAGS.batch_size, num_sentences_total, FLAGS.sentence_length])
+    sentence_length = FLAGS.sentence_embedding_length if FLAGS.use_skip_thoughts else FLAGS.sentence_length
+    next_batch_context_x.set_shape([FLAGS.batch_size, num_sentences_total, sentence_length])
 
     train_init_op = iter.make_initializer(train_dataset, name='train_dataset')
     test_init_op = iter.make_initializer(test_dataset, name='test_dataset')
@@ -205,7 +280,7 @@ with tf.Graph().as_default():
             tf.set_random_seed(FLAGS.random_seed)
 
         # Build execution graph
-        network = BiDirectional_LSTM(sess, vocab, next_batch_context_x)
+        network = BiDirectional_LSTM(sess, vocab, next_batch_context_x, FLAGS.attention, FLAGS.attention_size)
 
         # train_logits: [batch_size]
         # eval_predictions: [batch_size] (index of prediction
@@ -316,7 +391,8 @@ with tf.Graph().as_default():
             print(f"{sanity}")
             print("shape context", context.shape)
             # print(f"{tl}")
-            print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
+            if not FLAGS.use_skip_thoughts:
+                print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
             print(f"labels {by}")
             print(f"predictions {eval}")
             time_str = datetime.datetime.now().isoformat()
@@ -334,7 +410,8 @@ with tf.Graph().as_default():
             fetches = [global_step, dev_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x]
             step, summaries, loss, accuracy, by, eval, context = sess.run(fetches, feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
+            if not FLAGS.use_skip_thoughts:
+                print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
             print(f"labels {by}")
             print(f"predictions {eval}")
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))

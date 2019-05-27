@@ -6,8 +6,11 @@ import tensorflow as tf
 from data_utils import sentences_to_sparse_tensor as to_sparse
 import numpy as np
 import nltk
-
 from definitions import ROOT_DIR
+
+"""
+Inspired by https://aclweb.org/anthology/W17-0908
+"""
 
 
 class FeatureExtractor:

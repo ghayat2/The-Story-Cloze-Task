@@ -10,8 +10,10 @@ from gensim.scripts.glove2word2vec import glove2word2vec
 CONTEXT_LENGTH = 4
 FLAGS = tf.flags.FLAGS
 
+
 def makeSymbolStory(array, vocabLookup):
     return [makeSymbols(s, vocabLookup) for s in array.tolist()]
+
 
 def makeSymbols(array, vocabLookup):
     """
@@ -20,6 +22,7 @@ def makeSymbols(array, vocabLookup):
     conv = list(vocabLookup[x] for x in array)
     filtered = filter(lambda x: x != '<pad>', conv) # For readability
     return list(filtered)
+
 
 def endings(sentences):
     return [split_sentences(sentence)[1][0] for sentence in sentences]
@@ -30,6 +33,12 @@ def split_sentences(sentences):
     return sentences[0:CONTEXT_LENGTH, :], sentences[CONTEXT_LENGTH:, :]
 
 
+def split_skip_thoughts_sentences(sentences):
+    """
+    Same as split_sentences but for skip_thoughts tf_records.
+    :param sentences:
+    """
+    return list(sentences[f"sentence{sentence_nb}"] for sentence_nb in range(1, 5)), [sentences["sentence5"]]
 
 
 def load_embedding(session, vocab, emb, path, dim_embedding, vocab_size):
@@ -87,3 +96,7 @@ def randomize_labels(sentences):
     print("Randomized, sentences", sentences)
     return tf.gather(sentences, shuffled),\
            tf.cast(tf.argmax(tf.gather(labels, shuffled)), dtype=tf.int32)
+
+
+def tensorize_dict(sentences):
+    return tf.stack(list(sentences.values()))
