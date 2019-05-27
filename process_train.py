@@ -28,7 +28,7 @@ else:
 
 """ Selecting vocabulary to use from encoding based on paramaters fed to the program"""
 if len(sys.argv) < 3:
-    vocabname = None # If nothing is specified, generate a new vocab!
+    vocabname = None  # If nothing is specified, generate a new vocab!
 else:
     vocabname = sys.argv[2]
 
