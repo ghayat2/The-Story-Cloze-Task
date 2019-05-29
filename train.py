@@ -58,7 +58,7 @@ tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
 tf.flags.DEFINE_string("path_embeddings", "data/wordembeddings-dim100.word2vec", "Path to the word2vec embeddings")
 tf.flags.DEFINE_bool("use_skip_thoughts", True, "Whether we use skip thoughts for sentences embedding")
 
-tf.flags.DEFINE_string('attention', 'add', 'Attention type (add ~ Bahdanau, mult ~ Luong, None). Only for Roemmele ''models.')
+tf.flags.DEFINE_string('attention', None, 'Attention type (add ~ Bahdanau, mult ~ Luong, None). Only for Roemmele ''models.')
 tf.flags.DEFINE_integer('attention_size', 1000, 'Attention size.')
 
 
@@ -69,6 +69,7 @@ tf.flags.DEFINE_string("rnn_cell", "LSTM", "Cell type.")
 tf.flags.DEFINE_integer("rnn_cell_size", 1000, "RNN cell size")
 
 
+# Augmenting parameters
 
 
 # Training parameters
@@ -312,9 +313,11 @@ with tf.Graph().as_default():
         sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
 
         # Iterator test for debugging to compare inputs
-        # iterTestSentences, iterTestLabels = sess.run([next_batch_context_x, next_batch_endings_y], {handle: train_handle})
-        # print("Story 1", data_utils.makeSymbolStory(iterTestSentences[0], vocabLookup))
-        # print("Label 1", iterTestLabels[0])
+        for i in range(10):
+            iterTestSentences, iterTestLabels = sess.run([next_batch_context_x, next_batch_endings_y], {handle: train_handle})
+            print("Story 1", np.sum(iterTestSentences[0], axis=1))
+            # print("Story 1", data_utils.makeSymbolStory(iterTestSentences[0], vocabLookup))
+            # print("Label 1", iterTestLabels[0])
 
 
         # Define training procedure
