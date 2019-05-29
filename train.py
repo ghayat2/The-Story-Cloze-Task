@@ -313,6 +313,7 @@ with tf.Graph().as_default():
         # Iterator test for debugging to compare inputs
         for i in range(10):
             iterTestSentences, iterTestLabels = sess.run([next_batch_context_x, next_batch_endings_y], {handle: train_handle})
+            print(next_batch_context_x)
             print("Story 1", np.sum(iterTestSentences[0], axis=1))
             # print("Story 1", data_utils.makeSymbolStory(iterTestSentences[0], vocabLookup))
             # print("Label 1", iterTestLabels[0])
