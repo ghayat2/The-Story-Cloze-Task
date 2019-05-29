@@ -46,8 +46,6 @@ tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
 
 tf.flags.DEFINE_integer("sentence_embedding_length", 4800, "Length of the sentence embeddings")
 
-tf.flags.DEFINE_integer("num_neg_random", 3, "Number of negative random endings")
-tf.flags.DEFINE_integer("num_neg_back", 2, "Number of negative back endings")
 tf.flags.DEFINE_integer("ratio_neg_random", 5, "Ratio of negative random endings")
 tf.flags.DEFINE_integer("ratio_neg_back", 1, "Ratio of negative back endings")
 
@@ -319,7 +317,7 @@ with tf.Graph().as_default():
             # print("Story 1", data_utils.makeSymbolStory(iterTestSentences[0], vocabLookup))
             # print("Label 1", iterTestLabels[0])
 
-        exit(0)
+        # exit(0)
 
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
