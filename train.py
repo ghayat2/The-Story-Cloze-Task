@@ -319,6 +319,7 @@ with tf.Graph().as_default():
             # print("Story 1", data_utils.makeSymbolStory(iterTestSentences[0], vocabLookup))
             # print("Label 1", iterTestLabels[0])
 
+        exit(0)
 
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
