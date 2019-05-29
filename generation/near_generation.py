@@ -1,7 +1,7 @@
 import pandas
 
 from definitions import ROOT_DIR
-from embedding.sentence_embedder import SentenceEmbedder
+from embedding.sentence_embedder import SkipThoughtsEmbedder as SentenceEmbedder
 from generation.ending_generator import EndingGenerator
 import numpy as np
 
@@ -11,7 +11,7 @@ class NearGeneration(EndingGenerator):
     def __init__(self,
                  sentence_embeddings,
                  embeddings_hashable=False,
-                 distance_function=lambda x1, x2: np.linalg.norm(np.array(x1) - np.array(x2)),
+                 distance_function=lambda a, b: np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)),
                  *args, **kwargs):
         """
         :param sentence_embeddings: A vector of sentence embeddings of any length.
@@ -27,7 +27,7 @@ class NearGeneration(EndingGenerator):
 
     def generate_ending(self,
                         correct_ending,
-                        optimal_endings_distance=0.91524,
+                        optimal_endings_distance=0.78409,
                         is_encoded=True,
                         is_hashable=False):
         """
@@ -75,10 +75,6 @@ class NearGeneration(EndingGenerator):
         for i, sentences in eval_set.iterrows():
             dist = self.dist_function(*self._get_encoder().encode([sentences["RandomFifthSentenceQuiz1"],
                                                                     sentences["RandomFifthSentenceQuiz2"]]))
-            # dist = self.dist_function(
-            #     self._get_encoder().encode([sentences["RandomFifthSentenceQuiz1"]])[0],
-            #     self._get_encoder().encode([sentences["RandomFifthSentenceQuiz2"]])[0]
-            # )
             avg_distance += dist / set_size
         return avg_distance
 
@@ -108,8 +104,15 @@ def test_distances():
 
 def test_avg_distance():
     ng = NearGeneration(sentence_embeddings=None)
-    print(ng.get_evaluation_set_avg_distance()) # prints 0.9152397129033607
+    print(ng.get_evaluation_set_avg_distance())  # prints 0.7840946715410734
 
 
-test_avg_distance()
-
+def test_eval_dataset():
+    eval_dataset = np.load(ROOT_DIR + "/data/processed/eval_stories_skip_thoughts.npy")[:, 4, :]
+    sentences = pandas.read_csv(ROOT_DIR+"/data/eval_stories.csv")["RandomFifthSentenceQuiz1"]
+    print(sentences.iloc[480])
+    ng = NearGeneration(sentence_embeddings=eval_dataset)
+    new_ending = ng.generate_ending(eval_dataset[480], is_encoded=True)
+    for i in range(len(eval_dataset)):
+        if abs(sum(eval_dataset[i]) - sum(new_ending)) < 1e-2:
+            print(sentences.iloc[i])
