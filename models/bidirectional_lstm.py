@@ -26,8 +26,8 @@ class BiDirectional_LSTM:
                                                 dtype=tf.float32,
                                                 trainable=True)
 
-#        data_utils.load_embedding(self.session, self.vocab, self.embedding_matrix, FLAGS.path_embeddings, FLAGS.word_embedding_dimension,
-#                                  FLAGS.vocab_size)
+        data_utils.load_embedding(self.session, self.vocab, self.embedding_matrix, FLAGS.path_embeddings, FLAGS.word_embedding_dimension,
+                                 FLAGS.vocab_size)
 
         embedded_words = tf.nn.embedding_lookup(self.embedding_matrix,
                                                      self.input)  # DIM [batch_size, sentence_len, embedding_dim]
@@ -43,6 +43,9 @@ class BiDirectional_LSTM:
         return embedded_words
 
     def _sentence_states(self) -> tf.Tensor:
+        if FLAGS.use_skip_thoughts:
+            return self.input
+
         with tf.name_scope("word_embeddings"):
             sentence_word_embeddings = self._word_embeddings()
 
@@ -104,33 +107,13 @@ class BiDirectional_LSTM:
 
     def build_model(self):
 
-#        with tf.name_scope("split_endings"):
-#            per_sentence_states = self._sentence_states()
-#            sentence_states = per_sentence_states[:, :FLAGS.num_context_sentences, :]
-#            print("sentence_states", sentence_states.get_shape())
-#            ending1_states = per_sentence_states[:, FLAGS.num_context_sentences + 0, :]
-#            ending1_states = tf.expand_dims(ending1_states, axis=1)
-#            print("ending1_states", ending1_states.get_shape())
-#            ending2_states = per_sentence_states[:, FLAGS.num_context_sentences + 1, :]
-#            ending2_states = tf.expand_dims(ending2_states, axis=1)
-#            print("ending2_states", ending2_states.get_shape())
-#            ending1_states = tf.concat([sentence_states, ending1_states], axis=1)
-#            ending2_states = tf.concat([sentence_states, ending2_states], axis=1)
-            
         with tf.name_scope("split_endings"):
-            per_sentence_states = self.input if FLAGS.use_skip_thoughts else self._sentence_states()
+            per_sentence_states = self._sentence_states()
             sentence_states = per_sentence_states[:, :FLAGS.num_context_sentences, :]
 
             print("sentence_states", sentence_states.get_shape())
             ending_states = per_sentence_states[:, FLAGS.num_context_sentences:, :]
             print("-------------ENDING_STATES-----------", ending_states)
-            # sentence_states = tf.reshape(sentence_states, [FLAGS.num_context_sentences,FLAGS.batch_size,FLAGS.word_embedding_dimension])
-            # ending_states = tf.reshape(ending_states, [FLAGS.classes,FLAGS.batch_size,FLAGS.word_embedding_dimension])
-            # stories = tf.map_fn(lambda x: tf.concat([sentence_states, tf.expand_dims(x, axis = 0)], axis = 0), ending_states)
-            # stories = tf.reshape(stories, [FLAGS.classes, FLAGS.batch_size, FLAGS.num_context_sentences + 1, FLAGS.word_embedding_dimension])
-            # print("-------------ENDING_STATES-----------", stories)
-
-
 
 
         with tf.variable_scope("ending", reuse=tf.AUTO_REUSE) as ending_scope:

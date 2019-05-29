@@ -1,0 +1,30 @@
+#!/bin/bash
+# Shell script to run tensorboard on cluster
+
+#set -x
+
+PORT=60079
+
+run_tensorboard() {
+    module load python_cpu/3.7.1
+    tensorboard --logdir=nlu-project2
+}
+
+leonhard_tensorboard() {
+    echo "Extracting job id"
+    JOBID=$(bjobs | sed -n 2p | cut -d" " -f1)
+    echo "Found job $JOBID"
+    PORT=60079
+bjob_connect $JOBID -L $PORT:localhost:6007 << EOF
+    $(typeset -f)
+    #run_tensorboard
+EOF
+
+}
+
+echo -n "NETHZ username: "
+read username
+ssh -L 6006:localhost:$PORT $username@login.leonhard.ethz.ch << EOF
+    $(typeset -f)
+    leonhard_tensorboard $@
+EOF
