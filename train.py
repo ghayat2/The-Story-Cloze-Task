@@ -314,11 +314,17 @@ with tf.Graph().as_default():
         for i in range(10):
             iterTestSentences, iterTestLabels = sess.run([next_batch_context_x, next_batch_endings_y], {handle: train_handle})
             print(next_batch_context_x)
-            print("Story 1", np.sum(iterTestSentences[0], axis=1))
+            print("Story 1", np.sum(iterTestSentences[0], axis=1), iterTestLabels[0])
             # print("Story 1", data_utils.makeSymbolStory(iterTestSentences[0], vocabLookup))
             # print("Label 1", iterTestLabels[0])
 
-        # exit(0)
+        print("EVAL")
+        for i in range(10):
+            iterTestSentences, iterTestLabels = sess.run([next_batch_context_x, next_batch_endings_y], {handle: test_handle})
+            print(next_batch_context_x)
+            print("Eval story 1", np.sum(iterTestSentences[0], axis=1), iterTestLabels[0])
+
+        exit(0)
 
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
