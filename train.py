@@ -324,7 +324,7 @@ with tf.Graph().as_default():
             print(next_batch_context_x)
             print("Eval story 1", np.sum(iterTestSentences[0], axis=1), iterTestLabels[0])
 
-        exit(0)
+        # exit(0)
 
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
