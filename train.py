@@ -58,7 +58,7 @@ tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
 tf.flags.DEFINE_string("path_embeddings", "data/wordembeddings-dim100.word2vec", "Path to the word2vec embeddings")
 tf.flags.DEFINE_bool("use_skip_thoughts", True, "Whether we use skip thoughts for sentences embedding")
 
-tf.flags.DEFINE_string('attention', 'add', 'Attention type (add ~ Bahdanau, mult ~ Luong, None). Only for Roemmele ''models.')
+tf.flags.DEFINE_string('attention', None, 'Attention type (add ~ Bahdanau, mult ~ Luong, None). Only for Roemmele ''models.')
 tf.flags.DEFINE_integer('attention_size', 1000, 'Attention size.')
 
 

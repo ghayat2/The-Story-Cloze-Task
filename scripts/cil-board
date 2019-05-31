@@ -3,7 +3,7 @@
 
 #set -x
 
-PORT=60079
+PORT=60084
 
 run_tensorboard() {
     module load python_cpu/3.7.1
@@ -14,10 +14,10 @@ leonhard_tensorboard() {
     echo "Extracting job id"
     JOBID=$(bjobs | sed -n 2p | cut -d" " -f1)
     echo "Found job $JOBID"
-    PORT=60079
+    PORT=60084
 bjob_connect $JOBID -L $PORT:localhost:6006 << EOF
     $(typeset -f)
-    #run_tensorboard
+    run_tensorboard
 EOF
 
 }
