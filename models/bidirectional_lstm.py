@@ -17,6 +17,8 @@ class BiDirectional_LSTM:
         self.attention = attention
         self.attention_size = attention_size
 
+        self.dropout_rate = tf.placeholder_with_default(0.0, shape=())
+
 
     def _word_embeddings(self):
         # embed the words here
@@ -92,10 +94,7 @@ class BiDirectional_LSTM:
         return output
 
     def _dropout_layer(self, state: tf.Tensor) -> tf.Tensor:
-        if FLAGS.dropout_rate > 0:
-            return tf.nn.dropout(state, rate=FLAGS.dropout_rate)
-        return state
-            
+        return tf.nn.dropout(state, rate=self.dropout_rate)
 
     def build_model(self):
 

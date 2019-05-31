@@ -384,7 +384,10 @@ with tf.Graph().as_default():
             """
             A single training step
             """
-            feed_dict = {handle: train_handle}
+            feed_dict = {
+                handle: train_handle,
+                network.dropout_rate: FLAGS.dropout_rate
+            }
             fetches = [train_op, global_step, train_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x, network.train_predictions]
             _, step, summaries, loss, accuracy, by, eval, context, sanity = sess.run(fetches, feed_dict)
             print(f"{sanity}")
@@ -404,7 +407,8 @@ with tf.Graph().as_default():
             Evaluates model on a dev set
             """
             feed_dict = {
-                handle: test_handle
+                handle: test_handle,
+                network.dropout_rate: 0.0
             }
             fetches = [global_step, dev_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x]
             step, summaries, loss, accuracy, by, eval, context = sess.run(fetches, feed_dict)
