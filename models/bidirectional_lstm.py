@@ -105,6 +105,8 @@ class BiDirectional_LSTM:
             print("sentence_states", sentence_states.get_shape())
             ending_states = per_sentence_states[:, FLAGS.num_context_sentences:, :]
             print("-------------ENDING_STATES-----------", ending_states)
+            ending_state1 = ending_states[:, 0:1, :]
+            ending_state2 = ending_states[:, 1:2, :]
             # sentence_states = tf.reshape(sentence_states, [FLAGS.num_context_sentences,FLAGS.batch_size,FLAGS.word_embedding_dimension])
             # ending_states = tf.reshape(ending_states, [FLAGS.classes,FLAGS.batch_size,FLAGS.word_embedding_dimension])
             # stories = tf.map_fn(lambda x: tf.concat([sentence_states, tf.expand_dims(x, axis = 0)], axis = 0), ending_states)
@@ -113,25 +115,25 @@ class BiDirectional_LSTM:
 
         with tf.variable_scope("ending") as ending_scope:
             with tf.name_scope("sentence_rnn"):
-                story1 = tf.concat([sentence_states, ending_states[:, 0:1, :]], axis=1)
+                story1 = tf.concat([sentence_states, ending_state1], axis=1)
                 print(f"Story {1}", story1)
                 res = self._sentence_rnn(story1)
                 res = self._dropout_layer(res)
 
                 print("RES2", res)
-                with tf.name_scope("fc"):
-                    ending_outputs1 = self._output_fc(res)
+            with tf.name_scope("fc"):
+                ending_outputs1 = self._output_fc(res)
 
         with tf.variable_scope(ending_scope, reuse=True):
             with tf.name_scope("sentence_rnn"):
-                story2 = tf.concat([sentence_states, ending_states[:, 1:2, :]], axis=1)
+                story2 = tf.concat([sentence_states, ending_state2], axis=1)
                 print(f"Story {2}", story2)
                 res = self._sentence_rnn(story2)
                 res = self._dropout_layer(res)
 
                 print("RES2", res)
-                with tf.name_scope("fc"):
-                    ending_outputs2 = self._output_fc(res)
+            with tf.name_scope("fc"):
+                ending_outputs2 = self._output_fc(res)
 
         ending_outputs = tf.stack([ending_outputs1, ending_outputs2], axis=1)
 
