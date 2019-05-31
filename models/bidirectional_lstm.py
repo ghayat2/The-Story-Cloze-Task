@@ -117,7 +117,7 @@ class BiDirectional_LSTM:
                 story1 = tf.concat([sentence_states, ending_state1], axis=1)
                 print(f"Story {1}", story1)
                 res = self._sentence_rnn(story1)
-                res = self._dropout_layer(res)
+                #res = self._dropout_layer(res)
 
                 print("RES2", res)
             with tf.name_scope("fc"):
@@ -128,7 +128,7 @@ class BiDirectional_LSTM:
                 story2 = tf.concat([sentence_states, ending_state2], axis=1)
                 print(f"Story {2}", story2)
                 res = self._sentence_rnn(story2)
-                res = self._dropout_layer(res)
+                #res = self._dropout_layer(res)
 
                 print("RES2", res)
             with tf.name_scope("fc"):
