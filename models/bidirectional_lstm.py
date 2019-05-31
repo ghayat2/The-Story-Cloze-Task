@@ -123,7 +123,7 @@ class BiDirectional_LSTM:
             with tf.name_scope("fc"):
                 ending_outputs1 = self._output_fc(res)
 
-        with tf.variable_scope(ending_scope, reuse=True):
+        with tf.variable_scope(ending_scope.original_name_scope, reuse=True):
             with tf.name_scope("sentence_rnn"):
                 story2 = tf.concat([sentence_states, ending_state2], axis=1)
                 print(f"Story {2}", story2)
