@@ -50,13 +50,12 @@ class BiDirectional_LSTM:
             return per_sentence_states
 
     def _create_cell(self, rnn_cell_dim, name=None) -> tf.nn.rnn_cell.RNNCell:
-        reuse = tf.AUTO_REUSE
         if FLAGS.rnn_cell == "LSTM":
-            return tf.nn.rnn_cell.LSTMCell(rnn_cell_dim, name=name, reuse=reuse)
+            return tf.nn.rnn_cell.LSTMCell(rnn_cell_dim, name=name)
         elif FLAGS.rnn_cell == "GRU":
-            return tf.nn.rnn_cell.GRUCell(rnn_cell_dim, name=name, reuse=reuse)
+            return tf.nn.rnn_cell.GRUCell(rnn_cell_dim, name=name)
         elif FLAGS.rnn_cell == "VAN":
-            return tf.nn.rnn_cell.BasicRNNCell(rnn_cell_dim, name=name, reuse=reuse)
+            return tf.nn.rnn_cell.BasicRNNCell(rnn_cell_dim, name=name)
         else:
             raise ValueError(f"Unknown rnn_cell {FLAGS.rnn_cell}.")
 
@@ -89,7 +88,7 @@ class BiDirectional_LSTM:
         return res
 
     def _output_fc(self, state: tf.Tensor) -> tf.Tensor:
-        output = tf.layers.dense(state, self.ACTIVATION_NODES, activation=None, name="output", reuse=tf.AUTO_REUSE)
+        output = tf.layers.dense(state, self.ACTIVATION_NODES, activation=None, name="output")
         print("output", output.get_shape())
         return output
 
