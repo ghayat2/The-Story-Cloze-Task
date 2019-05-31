@@ -89,7 +89,7 @@ class BiDirectional_LSTM:
         return res
 
     def _output_fc(self, state: tf.Tensor) -> tf.Tensor:
-        output = tf.layers.dense(state, self.ACTIVATION_NODES, activation=None, name="output")
+        output = tf.layers.dense(state, self.ACTIVATION_NODES, activation=None, name="output", reuse=tf.AUTO_REUSE)
         print("output", output.get_shape())
         return output
 
