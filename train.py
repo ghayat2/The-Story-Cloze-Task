@@ -47,7 +47,7 @@ tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
 tf.flags.DEFINE_integer("sentence_embedding_length", 4800, "Length of the sentence embeddings")
 
 tf.flags.DEFINE_integer("ratio_neg_random", 4, "Ratio of negative random endings")
-tf.flags.DEFINE_integer("ratio_neg_back", 3, "Ratio of negative back endings")
+tf.flags.DEFINE_integer("ratio_neg_back", 2, "Ratio of negative back endings")
 
 tf.flags.DEFINE_float("dropout_rate", 0.7, "Dropout rate")
 
