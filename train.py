@@ -56,7 +56,11 @@ tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
 tf.flags.DEFINE_string("path_embeddings", "data/wordembeddings-dim100.word2vec", "Path to the word2vec embeddings")
 tf.flags.DEFINE_bool("use_skip_thoughts", True, "Whether we use skip thoughts for sentences embedding")
 
+<<<<<<< Updated upstream
 tf.flags.DEFINE_string('attention', None, 'Attention type (add ~ Bahdanau, mult ~ Luong, None). Only for Roemmele ''models.')
+=======
+tf.flags.DEFINE_string('attention', None , 'Attention type (add ~ Bahdanau, mult ~ Luong, None). Only for Roemmele ''models.')
+>>>>>>> Stashed changes
 tf.flags.DEFINE_integer('attention_size', 1000, 'Attention size.')
 
 
@@ -70,7 +74,7 @@ tf.flags.DEFINE_integer("rnn_cell_size", 1000, "RNN cell size")
 
 
 # Training parameters
-tf.flags.DEFINE_float("learning_rate", 0.001, "Learning rate (default: 0.001)")
+tf.flags.DEFINE_float("learning_rate", 0.01, "Learning rate (default: 0.001)")
 tf.flags.DEFINE_integer("repeat_train_dataset", 5000, "Number of times to repeat the dataset")
 tf.flags.DEFINE_integer("repeat_eval_dataset", 500, "Number of times to repeat the dataset")
 tf.flags.DEFINE_integer("shuffle_buffer_size", 5, "Buffer size for shuffling")
