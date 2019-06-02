@@ -142,10 +142,10 @@ if not FLAGS.use_skip_thoughts:
     sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, sentence_length (5), vocab_size (30)]
     padding_sentences = np.zeros((sentences.shape[0], FLAGS.classes -1, sentences.shape[2]), dtype=np.int32)
     sentences = np.concatenate([sentences, padding_sentences], axis=1)
+    print(sentences.shape)
 
 # print(sentences[0])
 
-print(sentences.shape)
 # sentences = sentences[:10, :, :]
 
 vocab = np.load(FLAGS.data_sentences_vocab_path, allow_pickle=True)  # vocab contains [symbol: id]
