@@ -304,12 +304,13 @@ with tf.Graph().as_default():
         train_handle = sess.run(train_iterator.string_handle())
         test_handle = sess.run(test_iterator.string_handle())
 
-        if FLAGS.use_train_set:
-            sess.run(train_iterator.initializer, feed_dict={input_x: sentences})
-        else:
-            sess.run(train_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
+        if not FLAGS.use_skip_thoughts:
+            if FLAGS.use_train_set:
+                sess.run(train_iterator.initializer, feed_dict={input_x: sentences})
+            else:
+                sess.run(train_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
             
-        sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
+            sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
 
         # Iterator test for debugging to compare inputs
         # iterTestSentences, iterTestLabels = sess.run([next_batch_context_x, next_batch_endings_y], {handle: train_handle})
