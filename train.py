@@ -390,8 +390,8 @@ with tf.Graph().as_default():
             }
             fetches = [train_op, global_step, train_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x, network.train_predictions]
             _, step, summaries, loss, accuracy, by, eval, context, sanity = sess.run(fetches, feed_dict)
-            print(f"{sanity}")
-            print("shape context", context.shape)
+            print(f"{context[0, :, :10]}")
+            # print("shape context", context.shape)
             # print(f"{tl}")
             if not FLAGS.use_skip_thoughts:
                 print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
