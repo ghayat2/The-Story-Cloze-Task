@@ -108,9 +108,9 @@ def get_skip_thoughts_data_iterator(augment_fn, threads=5, batch_size=1, repeat_
     from embedding.sentence_embedder import SkipThoughtsEmbedder
     return SkipThoughtsEmbedder.get_train_tf_dataset()\
         .map(d.split_skip_thoughts_sentences, num_parallel_calls=5)\
-        .map(augment_fn, num_parallel_calls=threads)\
+        .map(augment_fn, num_parallel_calls=threads) \
+        .shuffle(10000, reshuffle_each_iteration=True) \
         .repeat(repeat_train_dataset)\
-        .shuffle(5000)\
         .batch(batch_size, drop_remainder=True)
 
 
