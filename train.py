@@ -280,17 +280,21 @@ with tf.Graph().as_default():
 
         # train_logits: [batch_size]
         # eval_predictions: [batch_size] (index of prediction
-        eval_predictions, endings, train_logits = network.build_model()
-
-        # Compare with next_batch_endings_y
-        if FLAGS.loss_function == "SIGMOID":
-            loss = losses.sigmoid(next_batch_endings_y, train_logits)
-        elif FLAGS.loss_function == "SOFTMAX":
-            loss = losses.sparse_softmax(next_batch_endings_y, endings)
-        else:
-            raise RuntimeError(f"Loss function {FLAGS.loss_function} not supported.")
+#        eval_predictions, endings, train_logits = network.build_model()
+#
+#        # Compare with next_batch_endings_y
+#        if FLAGS.loss_function == "SIGMOID":
+#            loss = losses.sigmoid(next_batch_endings_y, train_logits)
+#        elif FLAGS.loss_function == "SOFTMAX":
+#            loss = losses.sparse_softmax(next_batch_endings_y, endings)
+#        else:
+#            raise RuntimeError(f"Loss function {FLAGS.loss_function} not supported.")
 
         # correct_position = tf.cast(tf.argmax(next_batch_endings_y, axis=1), dtype=tf.int32)
+        
+        eval_predictions, train_logits  = network.build_model()  
+        loss = tf.losses.sigmoid_cross_entropy(multi_class_labels=next_batch_endings_y, logits=train_logits)
+        
         accuracy = tf.reduce_mean(
             tf.cast(
                 tf.equal(eval_predictions, next_batch_endings_y), dtype=tf.float32
@@ -329,6 +333,7 @@ with tf.Graph().as_default():
         gradients = optimizer.compute_gradients(loss)
         clipped_gradients = [(tf.clip_by_norm(gradient, FLAGS.grad_clip), var) for gradient, var in gradients]
         train_op = optimizer.apply_gradients(clipped_gradients, global_step=global_step)
+        
 
         # Output directory for models and summaries
         if FLAGS.job_name is not None:
