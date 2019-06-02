@@ -4,12 +4,13 @@ from embedding.sentence_embedder import SkipThoughtsEmbedder
 import tensorflow as tf
 from definitions import ROOT_DIR
 import numpy as np
+import uuid
 
 
 class DistanceTracker:
     
     def save_closest_endings(self, endings, ng, buffer_size=50):
-        with tf.python_io.TFRecordWriter(f'{ROOT_DIR}/data/embeddings/endings/near_endings.tfrecords') as writer:
+        with tf.python_io.TFRecordWriter(f'{ROOT_DIR}/data/embeddings/endings/near_endings_{str(uuid.uuid4())}.tfrecords') as writer:
             for endingIndex in range(len(endings)):
                 a = datetime.datetime.now()
                 np_endings = endings.numpy()

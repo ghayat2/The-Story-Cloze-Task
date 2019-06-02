@@ -180,4 +180,5 @@ def read_near_endings_tfrecords():
                     break
 
 
+#read_near_endings_tfrecords()
 NearGeneration.generate_training_set_endings()
