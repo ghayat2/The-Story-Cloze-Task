@@ -1,38 +1,47 @@
+import datetime
+import operator
+
 import pandas
 
 from definitions import ROOT_DIR
 from embedding.sentence_embedder import SkipThoughtsEmbedder as SentenceEmbedder
+from generation.distance_tracker import DistanceTracker
 from generation.ending_generator import EndingGenerator
 import numpy as np
+import tensorflow as tf
 
 
 class NearGeneration(EndingGenerator):
 
     def __init__(self,
                  sentence_embeddings,
+                 encoder=None,
                  embeddings_hashable=False,
-                 distance_function=lambda a, b: np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)),
+                 distance_function=lambda a, b: np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)),  # np.linalg.norm(np.subtract(a, b), 2),
                  *args, **kwargs):
         """
         :param sentence_embeddings: A vector of sentence embeddings of any length.
         :param embeddings_hashable: If the sentence embeddings are hashable python objects. If not, they'll be transformed to
         tuples on the fly.
+        :param distance_function: A distance function to apply to the embeddings.
         """
         super(NearGeneration, self).__init__(*args, **kwargs)
+        if encoder is None:
+            encoder = SentenceEmbedder()
         self.sentence_embeddings = sentence_embeddings
-        self.distances = {}
+        self.distances_from_optimal_dist = {}
         self.embeddings_hashable = embeddings_hashable
-        self.encoder = None
+        self.encoder = encoder
         self.dist_function = distance_function
 
-    def generate_ending(self,
-                        correct_ending,
-                        optimal_endings_distance=0.78409,
-                        is_encoded=True,
-                        is_hashable=False):
+    def generate_endings(self,
+                         correct_ending,
+                         nb_samples,
+                         optimal_endings_distance=0.78409,
+                         is_encoded=True,
+                         is_hashable=False):
         """
         :param correct_ending: A correct story ending.
-        :param dist_function: A distance function to apply to the embeddings.
         :param optimal_endings_distance: The ideal distance between :correct_ending and the returned generated ending.
         :param is_encoded: If correct_ending is already an embedded vector. If this is false, then skip thoughts
         is used to encode it.
@@ -46,27 +55,23 @@ class NearGeneration(EndingGenerator):
         if not is_encoded or not is_hashable:
             correct_ending = tuple(correct_ending)
         # Checks if we have already calculated some distances for this ending
-        if not(correct_ending in self.distances):
-            self.distances[correct_ending] = {}
+        if not (correct_ending in self.distances_from_optimal_dist):
+            self.distances_from_optimal_dist[correct_ending] = {}
         # Retrieves the distances
-        ending_distances = self.distances[correct_ending]
+        ending_distances = self.distances_from_optimal_dist[correct_ending]
         # Starts calculating or simply retrieving the distances if they've already been computed
-        closest_to_optimal = None
-        best_dist_from_optimal = None
         for sentence_embedding in self.sentence_embeddings:
             if not self.embeddings_hashable:
                 sentence_embedding = tuple(sentence_embedding)
             if sentence_embedding != correct_ending:
                 if sentence_embedding not in ending_distances:
                     # Computes distance from correct ending to current sentence embedding
-                    ending_distances[sentence_embedding] = self.dist_function(correct_ending, sentence_embedding)
-                # l1 norm between optimal distance and the actual distance for this sentence embedding
-                distance_to_optimal = abs(optimal_endings_distance - ending_distances[sentence_embedding])
-                # Takes the vector having the closest to optimal distance
-                if (closest_to_optimal is None) or (best_dist_from_optimal is None) or (distance_to_optimal < best_dist_from_optimal):
-                    closest_to_optimal = sentence_embedding
-                    best_dist_from_optimal = distance_to_optimal
-        return closest_to_optimal
+                    # l1 norm between optimal distance and the actual distance for this sentence embedding
+                    ending_distances[sentence_embedding] = \
+                        abs(optimal_endings_distance - self.dist_function(correct_ending, sentence_embedding))
+        # Takes the vectors having the closest to optimal distance
+        closest_endings = sorted(self.distances_from_optimal_dist[correct_ending].items(), key=operator.itemgetter(1))[:nb_samples]
+        return list(map(lambda close_ending: close_ending[0], closest_endings))
 
     def get_evaluation_set_avg_distance(self):
         eval_set = pandas.read_csv(ROOT_DIR + '/data/eval_stories.csv', header=0)
@@ -74,14 +79,41 @@ class NearGeneration(EndingGenerator):
         set_size = eval_set.shape[0]
         for i, sentences in eval_set.iterrows():
             dist = self.dist_function(*self._get_encoder().encode([sentences["RandomFifthSentenceQuiz1"],
-                                                                    sentences["RandomFifthSentenceQuiz2"]]))
+                                                                   sentences["RandomFifthSentenceQuiz2"]]))
             avg_distance += dist / set_size
         return avg_distance
 
     def _get_encoder(self):
-        if self.encoder is None:
-            self.encoder = SentenceEmbedder()
         return self.encoder
+
+    @staticmethod
+    def generate_training_set_endings(nb_training_samples=88000):
+        with tf.Graph().as_default():
+            encoder = SentenceEmbedder()
+            training_set_embeddings = SentenceEmbedder.get_train_tf_dataset()
+            dt = DistanceTracker()
+            training_endings = training_set_embeddings\
+                .map(lambda data: data["sentence5"], num_parallel_calls=5)\
+                .batch(batch_size=nb_training_samples)\
+                .map(lambda all_endings: tf.py_function(
+                    lambda endings: dt.save_closest_endings(
+                        endings, NearGeneration(sentence_embeddings=endings, encoder=encoder)),
+                    inp=[all_endings],
+                    Tout=tf.int32
+                ), num_parallel_calls=5)
+            # Start fetching data
+            it = training_endings.make_initializable_iterator()
+            fetch_next_ending = it.get_next()
+            sess = tf.Session()
+            with sess.as_default():
+                sess.run(it.initializer)
+                i = 0
+                while True:
+                    try:
+                        sess.run(fetch_next_ending)
+                    except tf.errors.OutOfRangeError:
+                        break
+                print(i)
 
 
 def test_distances():
@@ -96,7 +128,7 @@ def test_distances():
     generator = NearGeneration(
         embedded_sentences
     )
-    false_ending = generator.generate_ending(embedded_sentences[0])
+    false_ending = generator.generate_endings(embedded_sentences[0], nb_samples=1)
     for i in range(len(embedded_sentences)):
         if abs(sum(embedded_sentences[i]) - sum(false_ending)) < 1e-2:
             print(sentences[i])
@@ -109,10 +141,13 @@ def test_avg_distance():
 
 def test_eval_dataset():
     eval_dataset = np.load(ROOT_DIR + "/data/processed/eval_stories_skip_thoughts.npy")[:, 4, :]
-    sentences = pandas.read_csv(ROOT_DIR+"/data/eval_stories.csv")["RandomFifthSentenceQuiz1"]
+    sentences = pandas.read_csv(ROOT_DIR + "/data/eval_stories.csv")["RandomFifthSentenceQuiz1"]
     print(sentences.iloc[480])
     ng = NearGeneration(sentence_embeddings=eval_dataset)
-    new_ending = ng.generate_ending(eval_dataset[480], is_encoded=True)
+    new_ending = ng.generate_endings(eval_dataset[480], is_encoded=True, nb_samples=1)
     for i in range(len(eval_dataset)):
         if abs(sum(eval_dataset[i]) - sum(new_ending)) < 1e-2:
             print(sentences.iloc[i])
+
+
+NearGeneration.generate_training_set_endings()
