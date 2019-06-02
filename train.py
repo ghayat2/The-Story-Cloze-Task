@@ -138,9 +138,10 @@ if FLAGS.use_skip_thoughts:
         print("Evaluation dataset with skip thoughts embeddings successfully created !")
 
 # Load sentences from numpy file, with ids but not embedded
-sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, sentence_length (5), vocab_size (30)]
-padding_sentences = np.zeros((sentences.shape[0], FLAGS.classes -1, sentences.shape[2]), dtype=np.int32)
-sentences = np.concatenate([sentences, padding_sentences], axis=1)
+if not FLAGS.use_skip_thoughts:
+    sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, sentence_length (5), vocab_size (30)]
+    padding_sentences = np.zeros((sentences.shape[0], FLAGS.classes -1, sentences.shape[2]), dtype=np.int32)
+    sentences = np.concatenate([sentences, padding_sentences], axis=1)
 
 # print(sentences[0])
 
@@ -156,17 +157,16 @@ def eval_shape():
     print("eval sentences shape", np.shape(eval_sentences))
 
 
-# eval sentences
-# six sentences, plus label
-eval_sentences = np.load(FLAGS.data_sentences_eval_path).astype(dtype=np.int32)
-eval_shape()
-if FLAGS.classes > 2:
-    padding_sentences = np.zeros((eval_sentences.shape[0], FLAGS.classes -2, eval_sentences.shape[2]), dtype=np.int32)
-    eval_sentences = np.concatenate([eval_sentences, padding_sentences], axis=1)
-eval_shape()
+if not FLAGS.use_skip_thoughts:
+    # eval sentences
+    # six sentences, plus label
+    eval_sentences = np.load(FLAGS.data_sentences_eval_path).astype(dtype=np.int32)
+    if FLAGS.classes > 2:
+        padding_sentences = np.zeros((eval_sentences.shape[0], FLAGS.classes -2, eval_sentences.shape[2]), dtype=np.int32)
+        eval_sentences = np.concatenate([eval_sentences, padding_sentences], axis=1)
 
-eval_labels = np.load(FLAGS.data_sentences_eval_labels_path).astype(dtype=np.int32)
-eval_labels -= 1
+    eval_labels = np.load(FLAGS.data_sentences_eval_labels_path).astype(dtype=np.int32)
+    eval_labels -= 1
 
 assert FLAGS.classes == 2, "Classes must be 2!"
 # print(eval_sentences[0:1], eval_labels[0:1])
