@@ -40,10 +40,10 @@ class EmbeddedRandomPicker(Picker):
 
     def __init__(self, tf_dataset, *args, **kwargs):
         super(EmbeddedRandomPicker, self).__init__(*args, **kwargs)
-        self.dataset_iterator = tf_dataset.shuffle(5000).make_one_shot_iterator()
+        self.dataset_iterator = tf_dataset.shuffle(5000).map(lambda t: t["sentence5"]).make_one_shot_iterator()
 
     def pick(self, context, N=1):
-        return tf.stack([self.dataset_iterator.get_next()["sentence5"]])
+        return tf.stack([self.dataset_iterator.get_next()])
 
 
 class EmbeddedBackPicker(Picker):
