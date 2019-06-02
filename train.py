@@ -49,7 +49,7 @@ tf.flags.DEFINE_integer("sentence_embedding_length", 4800, "Length of the senten
 tf.flags.DEFINE_integer("ratio_neg_random", 4, "Ratio of negative random endings")
 tf.flags.DEFINE_integer("ratio_neg_back", 2, "Ratio of negative back endings")
 
-tf.flags.DEFINE_float("dropout_rate", 0.7, "Dropout rate")
+tf.flags.DEFINE_float("dropout_rate", 0.5, "Dropout rate")
 
 
 tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
@@ -70,7 +70,7 @@ tf.flags.DEFINE_integer("rnn_cell_size", 1000, "RNN cell size")
 
 
 # Training parameters
-tf.flags.DEFINE_float("learning_rate", 0.01, "Learning rate (default: 0.001)")
+tf.flags.DEFINE_float("learning_rate", 0.001, "Learning rate (default: 0.001)")
 tf.flags.DEFINE_integer("repeat_train_dataset", 5000, "Number of times to repeat the dataset")
 tf.flags.DEFINE_integer("repeat_eval_dataset", 500, "Number of times to repeat the dataset")
 tf.flags.DEFINE_integer("shuffle_buffer_size", 5, "Buffer size for shuffling")
