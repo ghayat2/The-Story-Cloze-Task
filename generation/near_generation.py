@@ -103,17 +103,30 @@ class NearGeneration(EndingGenerator):
                 ), num_parallel_calls=5)
             # Start fetching data
             it = training_endings.make_initializable_iterator()
-            fetch_next_ending = it.get_next()
+            compute_next_near_endings = it.get_next()
             sess = tf.Session()
             with sess.as_default():
                 sess.run(it.initializer)
                 i = 0
                 while True:
                     try:
-                        sess.run(fetch_next_ending)
+                        sess.run(compute_next_near_endings)
                     except tf.errors.OutOfRangeError:
                         break
                 print(i)
+
+    @staticmethod
+    def get_training_set_near_endings():
+        filepath = ROOT_DIR + "/data/embeddings/endings/near_endings.tfrecords"
+
+        def extract_fn(data_record):
+            return tf.parse_single_example(
+                data_record,
+                {f"generated_ending_{ind}": tf.FixedLenFeature(shape=4800, dtype=tf.float32) for ind in range(1, 6)}
+            )
+
+        generated_endings = tf.data.TFRecordDataset(filepath)
+        return generated_endings.map(extract_fn)
 
 
 def test_distances():
@@ -148,6 +161,23 @@ def test_eval_dataset():
     for i in range(len(eval_dataset)):
         if abs(sum(eval_dataset[i]) - sum(new_ending)) < 1e-2:
             print(sentences.iloc[i])
+
+
+def read_near_endings_tfrecords():
+    with tf.Graph().as_default():
+        sess = tf.Session()
+        with sess.as_default():
+            near_endings = NearGeneration.get_training_set_near_endings()
+            ite = near_endings.make_initializable_iterator()
+            sess.run(ite.initializer)
+            i = 0
+            while True:
+                try:
+                    print(sess.run(ite.get_next()))
+                    i += 1
+                    print(i)
+                except tf.errors.OutOfRangeError:
+                    break
 
 
 NearGeneration.generate_training_set_endings()
