@@ -28,8 +28,8 @@ class BiDirectional_LSTM:
                                                 dtype=tf.float32,
                                                 trainable=False)
 
-        data_utils.load_embedding(self.session, self.vocab, self.embedding_matrix, FLAGS.path_embeddings, FLAGS.word_embedding_dimension,
-                                  FLAGS.vocab_size)
+#        data_utils.load_embedding(self.session, self.vocab, self.embedding_matrix, FLAGS.path_embeddings, FLAGS.word_embedding_dimension,
+#                                  FLAGS.vocab_size)
 
         embedded_words = tf.nn.embedding_lookup(self.embedding_matrix,
                                                      self.input)  # DIM [batch_size, sentence_len, embedding_dim]
@@ -162,7 +162,7 @@ class BiDirectional_LSTM:
 #
 #        return eval_predictions, endings, self.train_logits
         
-    def build_model(self) -> Tuple[tf.Tensor, tf.Tensor]:
+    def build_model(self) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
         # Construct the graph
         with self.session.graph.as_default():
             with tf.name_scope("split_endings"):
@@ -202,7 +202,7 @@ class BiDirectional_LSTM:
                 variables = tf.trainable_variables()
                 print("Variables", variables)
 
-        return eval_predictions, self.train_logits
+        return eval_predictions, self.train_logits, self.train_predictions
     
     def _add_attention(self, outputs: tf.Tensor, cell_output: tf.Tensor, prefix="") -> tf.Tensor:
         attention_mechanism = self._create_attention(outputs)

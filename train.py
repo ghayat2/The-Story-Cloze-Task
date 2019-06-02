@@ -292,8 +292,10 @@ with tf.Graph().as_default():
 
         # correct_position = tf.cast(tf.argmax(next_batch_endings_y, axis=1), dtype=tf.int32)
         
-        eval_predictions, train_logits  = network.build_model()  
+        eval_predictions, train_logits, train_predictions  = network.build_model()  
         loss = tf.losses.sigmoid_cross_entropy(multi_class_labels=next_batch_endings_y, logits=train_logits)
+#        accuracy, update_accuracy = tf.metrics.accuracy(next_batch_endings_y, eval_predictions)
+
         
         accuracy = tf.reduce_mean(
             tf.cast(
@@ -390,9 +392,9 @@ with tf.Graph().as_default():
                 handle: train_handle,
                 network.dropout_rate: FLAGS.dropout_rate
             }
-            fetches = [train_op, global_step, train_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x, network.train_predictions]
-            _, step, summaries, loss, accuracy, by, eval, context, sanity = sess.run(fetches, feed_dict)
-            print(f"{sanity}")
+            fetches = [train_op, global_step, train_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x, train_predictions]
+            _, step, summaries, loss, accuracy, by, eval, context, train_pred = sess.run(fetches, feed_dict)
+            print(f"{train_pred}")
             print("shape context", context.shape)
             # print(f"{tl}")
             if not FLAGS.use_skip_thoughts:
