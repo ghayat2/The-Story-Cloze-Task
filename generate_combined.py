@@ -3,6 +3,9 @@ import functools
 import tensorflow as tf
 import data_utils as d
 from embedding.sentence_embedder import SkipThoughtsEmbedder
+import feature_extraction as F
+from definitions import ROOT_DIR
+
 
 
 FLAGS = tf.flags.FLAGS
@@ -45,6 +48,26 @@ class EmbeddedRandomPicker(Picker):
     def __init__(self, tf_dataset, *args, **kwargs):
         super(EmbeddedRandomPicker, self).__init__(*args, **kwargs)
         self.dataset_iterator = tf_dataset.shuffle(5000).map(lambda t: t["sentence5"]).make_one_shot_iterator()
+
+    def pick(self, context, N=1):
+        return tf.stack([self.dataset_iterator.get_next()])
+    
+class PlainRandomPicker(Picker):
+
+    def __init__(self, *args, **kwargs):
+        
+        super(PlainRandomPicker, self).__init__(*args, **kwargs)
+        csv_path = f"{ROOT_DIR}/data/train_stories.csv"
+
+        train_stories = tf.data.experimental.CsvDataset(
+        filenames=csv_path,
+        record_defaults=[tf.string for _ in range(5)],
+        select_cols=[2, 3, 4, 5, 6],
+        field_delim=",",
+        use_quote_delim=True,
+        header=True
+    )
+        self.dataset_iterator = train_stories.shuffle(5000).map(lambda x: x[4]).make_one_shot_iterator()
 
     def pick(self, context, N=1):
         return tf.stack([self.dataset_iterator.get_next()])
@@ -108,8 +131,29 @@ def get_data_iterator(sentences,
     return dataset
 
 
+def get_features(*sentences, for_methods=("pronoun_contrast", "n_grams_overlap")):
+    
+    features1 = {method: [] for method in for_methods}
+    features2 = {method: [] for method in for_methods}
+    story = sentences[0:3]
+    ending1 = sentences[4]
+    ending2 = sentences[5]
+
+    fe = F.FeatureExtractor(story)
+    for method in for_methods:
+        if method == "pronoun_contrast":
+            features1[method].append(fe.pronoun_contrast(ending1))
+            features2[method].append(fe.pronoun_contrast(ending2))
+        elif method == "n_grams_overlap":
+            features1[method].append(fe.n_grams_overlap(ending1))
+            features2[method].append(fe.n_grams_overlap(ending2))
+        
+    features1 = tf.stack(features1, axis=0)
+    features2 = tf.stack(features2, axis=0)
+    return (story, features1, features2)
+    
+    
 def get_skip_thoughts_data_iterator(augment_fn, threads=5, batch_size=1, repeat_train_dataset=5):
-    from definitions import ROOT_DIR
 
     csv_path = f"{ROOT_DIR}/data/train_stories.csv"
 
