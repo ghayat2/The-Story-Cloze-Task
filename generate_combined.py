@@ -2,10 +2,14 @@ import numpy as np
 import functools
 import tensorflow as tf
 import data_utils as d
+from embedding.sentence_embedder import SkipThoughtsEmbedder
+
 
 FLAGS = tf.flags.FLAGS
 
 CONTEXT_LENGTH = 4
+
+encoder = SkipThoughtsEmbedder()
 
 
 class Picker:
@@ -105,12 +109,37 @@ def get_data_iterator(sentences,
 
 
 def get_skip_thoughts_data_iterator(augment_fn, threads=5, batch_size=1, repeat_train_dataset=5):
-    from embedding.sentence_embedder import SkipThoughtsEmbedder
-    return SkipThoughtsEmbedder.get_train_tf_dataset()\
-        .map(d.split_skip_thoughts_sentences, num_parallel_calls=5)\
-        .map(augment_fn, num_parallel_calls=threads)\
-        .repeat(repeat_train_dataset)\
-        .shuffle(5000)\
+    from definitions import ROOT_DIR
+
+    csv_path = f"{ROOT_DIR}/data/train_stories.csv"
+
+    def embed_sentences(*sentences):
+        sentences = list(map(lambda s: s.numpy().decode("utf-8"), sentences))
+        embeddings = encoder.encode(sentences)
+        return tuple(embeddings)
+
+    def map_stories(*embedded_sentences):
+        return {f'sentence{i+1}': embedded_sentences[i] for i in range(5)}
+
+    train_stories = tf.data.experimental.CsvDataset(
+        filenames=csv_path,
+        record_defaults=[tf.string for _ in range(5)],
+        select_cols=[2, 3, 4, 5, 6],
+        field_delim=",",
+        use_quote_delim=True,
+        header=True
+    )
+
+    return train_stories.map(lambda *sentences: tf.py_function(
+            embed_sentences,
+            inp=sentences,
+            Tout=[tf.float32 for _ in range(5)]
+        ))\
+        .map(map_stories, num_parallel_calls=threads)\
+        .map(d.split_skip_thoughts_sentences, num_parallel_calls=5) \
+        .map(augment_fn, num_parallel_calls=threads) \
+        .repeat(repeat_train_dataset) \
+        .shuffle(5000) \
         .batch(batch_size, drop_remainder=True)
 
 
@@ -130,15 +159,35 @@ def get_eval_iterator(sentences, labels,
         .repeat(repeat_eval_dataset) \
         .batch(batch_size, drop_remainder=True) \
 
+
     return dataset
 
 
-def get_skip_thoughts_eval_iterator(labels, threads=5, batch_size=1, repeat_eval_dataset=5):
-    from embedding.sentence_embedder import SkipThoughtsEmbedder
-    eval_dataset = SkipThoughtsEmbedder.get_eval_tf_dataset().map(d.tensorize_dict, num_parallel_calls=threads)
-    labels_dataset = tf.data.Dataset.from_tensor_slices(labels)
+def get_skip_thoughts_eval_iterator(threads=5, batch_size=1, repeat_eval_dataset=5):
+    from definitions import ROOT_DIR
+
+    csv_path = f"{ROOT_DIR}/data/eval_stories.csv"
+
+    def embed_sentences(*sentences):
+        story = list(map(lambda s: s.numpy().decode("utf-8"), sentences[:-1]))
+        embeddings = encoder.encode(story)
+        return tf.stack(embeddings), sentences[-1]
+
+    train_stories = tf.data.experimental.CsvDataset(
+        filenames=csv_path,
+        record_defaults=[tf.string for _ in range(6)] + [tf.int32],
+        select_cols=[1, 2, 3, 4, 5, 6, 7],
+        field_delim=",",
+        use_quote_delim=True,
+        header=True
+    )
+
     # Zips the embeddings with the labels
-    return tf.data.Dataset.zip((eval_dataset, labels_dataset))\
-        .shuffle(buffer_size=5000)\
+    return train_stories.map(map_func=lambda *sentences: tf.py_function(
+            embed_sentences,
+            inp=sentences,
+            Tout=[tf.float32, tf.int32]
+        ))\
+        .shuffle(buffer_size=100)\
         .repeat(repeat_eval_dataset)\
         .batch(batch_size, drop_remainder=True)

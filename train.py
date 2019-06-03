@@ -226,7 +226,6 @@ with tf.Graph().as_default():
     else:
         if FLAGS.use_skip_thoughts:
             train_dataset = generate_combined.get_skip_thoughts_eval_iterator(
-                labels=input_y,
                 batch_size=FLAGS.batch_size,
                 repeat_eval_dataset=FLAGS.repeat_train_dataset
             )
@@ -240,7 +239,7 @@ with tf.Graph().as_default():
 
     if FLAGS.use_skip_thoughts:
         test_dataset = generate_combined.get_skip_thoughts_eval_iterator(
-            input_y, batch_size=FLAGS.batch_size, repeat_eval_dataset=FLAGS.repeat_eval_dataset
+            batch_size=FLAGS.batch_size, repeat_eval_dataset=FLAGS.repeat_eval_dataset
         )
     else:
         test_dataset = generate_combined.get_eval_iterator(input_x,
