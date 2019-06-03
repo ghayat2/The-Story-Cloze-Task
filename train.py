@@ -48,8 +48,8 @@ tf.flags.DEFINE_integer("sentence_embedding_length", 4800, "Length of the senten
 
 tf.flags.DEFINE_integer("num_neg_random", 3, "Number of negative random endings")
 tf.flags.DEFINE_integer("num_neg_back", 2, "Number of negative back endings")
-tf.flags.DEFINE_integer("ratio_neg_random", 5, "Ratio of negative random endings")
-tf.flags.DEFINE_integer("ratio_neg_back", 1, "Ratio of negative back endings")
+tf.flags.DEFINE_integer("ratio_neg_random", 4, "Ratio of negative random endings")
+tf.flags.DEFINE_integer("ratio_neg_back", 2, "Ratio of negative back endings")
 
 tf.flags.DEFINE_float("dropout_rate", 0.7, "Dropout rate")
 

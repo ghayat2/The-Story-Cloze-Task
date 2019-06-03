@@ -60,12 +60,15 @@ def load_embedding(session, vocab, emb, path, dim_embedding, vocab_size):
     matches = 0
 
     for tok, idx in vocab.item().items():
-        if tok in model.vocab:
+        if tok in model.vocab and tok != "<pad>":
             external_embedding[idx] = model[tok]
             matches += 1
         else:
             print("%s not in embedding file" % tok)
-            external_embedding[idx] = np.random.uniform(low=-0.25, high=0.25, size=dim_embedding)
+            if tok == "<pad>":
+                external_embedding[idx] = np.zeros(dim_embedding)
+            else:
+                external_embedding[idx] = np.random.uniform(low=-0.25, high=0.25, size=dim_embedding)
 
     print("%d words out of %d could be loaded" % (matches, vocab_size))
 

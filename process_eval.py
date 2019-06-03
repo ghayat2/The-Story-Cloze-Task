@@ -34,7 +34,7 @@ with codecs.open("data/"+ filename, encoding='utf-8') as f:
     for values in reader:
         texts.append(values[1:])
 
-MAX_NB_WORDS = 20000 - 1 # cause pad
+MAX_NB_WORDS = 20000 # cause pad
 MAX_SEQUENCE_LENGTH = 30
 
 flattened = [item for sublist in texts for item in sublist]
