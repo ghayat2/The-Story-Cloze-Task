@@ -63,7 +63,7 @@ tf.flags.DEFINE_integer('attention_size', 1000, 'Attention size.')
 
 
 
-tf.flags.DEFINE_integer("hidden_layer_size", 100, "Size of hidden layer")
+tf.flags.DEFINE_integer("hidden_layer_size", 1000, "Size of hidden layer")
 tf.flags.DEFINE_integer("rnn_num", 2, "Number of RNNs")
 tf.flags.DEFINE_string("rnn_cell", "LSTM", "Cell type.")
 tf.flags.DEFINE_integer("rnn_cell_size", 1000, "RNN cell size")
