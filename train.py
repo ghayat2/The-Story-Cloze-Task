@@ -59,6 +59,8 @@ tf.flags.DEFINE_bool("use_pronoun_contrast", True, "Whether the pronoun contrast
                                                     " networks' input.")
 tf.flags.DEFINE_bool("use_n_grams_overlap", True, "Whether the n grams overlap feature vector should be added to the "
                                                   "network's input.")
+tf.flags.DEFINE_bool("use_sentiment_analysis", True, "Whether to use the sentiment intensity analysis (4 dimensional "
+                                                     "vectors)")
 
 tf.flags.DEFINE_string('attention', None, 'Attention type (add ~ Bahdanau, mult ~ Luong, None). Only for Roemmele ''models.')
 tf.flags.DEFINE_integer('attention_size', 1000, 'Attention size.')
@@ -249,7 +251,7 @@ with tf.Graph().as_default():
         next_batch_context_shape = [FLAGS.batch_size, 1, sentence_length * FLAGS.num_context_sentences]
     next_batch_context = tf.reshape(next_batch_context, next_batch_context_shape)
     next_batch_context.set_shape([FLAGS.batch_size, 1, sentence_length * FLAGS.num_context_sentences])
-    features_size = 2  # TODO not hardcoding this
+    features_size = 22  # TODO not hardcoding this
     next_batch_features_1 = tf.reshape(next_batch_features_1, [FLAGS.batch_size, 1, features_size])
     next_batch_features_2 = tf.reshape(next_batch_features_2, [FLAGS.batch_size, 1, features_size])
     next_batch_labels.set_shape([FLAGS.batch_size, 2])

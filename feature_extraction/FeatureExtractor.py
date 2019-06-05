@@ -8,6 +8,7 @@ from data_pipeline.data_utils import sentences_to_sparse_tensor as to_sparse
 import numpy as np
 import nltk
 from definitions import ROOT_DIR
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 """
 Inspired by https://aclweb.org/anthology/W17-0908
@@ -21,10 +22,11 @@ class FeatureExtractor:
 
         :param context: First 4 sentences of the story. Array of strings.
         """
-        self.story = context
+        self.context = context
 
     @staticmethod
-    def generate_feature_records_train_set(tf_session, for_methods=("pronoun_contrast", "n_grams_overlap")):
+    def generate_feature_records_train_set(tf_session,
+                                           for_methods=("pronoun_contrast", "n_grams_overlap", "sentiment_analysis")):
         FeatureExtractor._generate_feature_records_set(
             tf_session,
             for_methods,
@@ -34,7 +36,8 @@ class FeatureExtractor:
         )
 
     @staticmethod
-    def generate_feature_records_eval_set(tf_session, for_methods=("pronoun_contrast", "n_grams_overlap")):
+    def generate_feature_records_eval_set(tf_session,
+                                          for_methods=("pronoun_contrast", "n_grams_overlap", "sentiment_analysis")):
         FeatureExtractor._generate_feature_records_set(
             tf_session,
             for_methods,
@@ -84,7 +87,7 @@ class FeatureExtractor:
         return tf.constant(ending_ngram_overlaps, shape=[1])
 
     def _merged_story(self):
-        return reduce(lambda sen1, sen2: sen1 + " " + sen2, self.story)
+        return reduce(lambda sen1, sen2: sen1 + " " + sen2, self.context)
 
     @staticmethod
     def _generate_feature_records_set(tf_session, for_methods, filename, ending_key, sentence_key_suffix):
@@ -105,6 +108,8 @@ class FeatureExtractor:
                     features[method].append(fe.pronoun_contrast(ending))
                 elif method == "n_grams_overlap":
                     features[method].append(fe.n_grams_overlap(ending))
+                elif method == "sentiment_analysis":
+                    features[method].append(fe.sentiment_analysis(ending, None))
                 else:
                     raise NotImplementedError("Feature extraction method not implemented.")
 
@@ -125,6 +130,16 @@ class FeatureExtractor:
                     write_data(feature_value)
                     i += 1
                     print(f"{len(feature_values) - i} remaining")
+
+    def sentiment_analysis(self, ending1, ending2):
+        analyzer = SentimentIntensityAnalyzer()
+        score = []
+        for stc in self.context + [ending1, ending2]:
+            vs = analyzer.polarity_scores(stc)
+            score.append(list(vs.values()))
+        score = np.array(score)
+
+        return score
 
 
 def save_all_features():

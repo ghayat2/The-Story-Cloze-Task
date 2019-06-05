@@ -9,6 +9,8 @@ from feature_extraction.FeatureExtractor import FeatureExtractor
 CONTEXT_LENGTH = 4
 encoder = SkipThoughtsEmbedder()
 
+FLAGS = tf.flags.FLAGS
+
 
 def create_story(*story_tensors,
                  sentence_embeddings=True,
@@ -71,21 +73,29 @@ def augment_data(story, random_picker, back_picker, ratio_random=0, ratio_back=0
     return story.randomize_labels()
 
 
-def get_features(story, for_methods=("pronoun_contrast", "n_grams_overlap")):
+def get_features(story):
     features1 = []
     features2 = []
 
     fe = FeatureExtractor(story.context)
-    for method in for_methods:
-        if method == "pronoun_contrast":
-            features1.append(fe.pronoun_contrast(story.ending1))
-            features2.append(fe.pronoun_contrast(story.ending2))
-        elif method == "n_grams_overlap":
-            features1.append(fe.n_grams_overlap(story.ending1))
-            features2.append(fe.n_grams_overlap(story.ending2))
+    if FLAGS.use_pronoun_contrast:
+        features1.append(fe.pronoun_contrast(story.ending1))
+        features2.append(fe.pronoun_contrast(story.ending2))
+    if FLAGS.use_n_grams_overlap:
+        features1.append(fe.n_grams_overlap(story.ending1))
+        features2.append(fe.n_grams_overlap(story.ending2))
+    if FLAGS.use_sentiment_analysis:
+        sentiments = fe.sentiment_analysis(story.ending1, story.ending2)
+        context_sentiments = np.reshape(sentiments[:CONTEXT_LENGTH], (-1))
+        ending1_sentiments = sentiments[CONTEXT_LENGTH]
+        ending2_sentiments = sentiments[CONTEXT_LENGTH + 1]
+        features1.append(context_sentiments)
+        features1.append(ending1_sentiments)
+        features2.append(context_sentiments)
+        features2.append(ending2_sentiments)
 
-    story.features_ending_1 = tf.cast(tf.concat(features1, axis=0), dtype=tf.float32)
-    story.features_ending_2 = tf.cast(tf.concat(features2, axis=0), dtype=tf.float32)
+    story.features_ending_1 = tf.squeeze(tf.cast(tf.concat(features1, axis=0), dtype=tf.float32))
+    story.features_ending_2 = tf.squeeze(tf.cast(tf.concat(features2, axis=0), dtype=tf.float32))
     return story
 
 
