@@ -1,18 +1,17 @@
 from pathlib import Path
 
-import data_utils as d
+from data_pipeline.ending_pickers import RandomPicker, BackPicker, PlainRandomPicker
 from embedding.sentence_embedder import SkipThoughtsEmbedder
 from models.bidirectional_lstm import BiDirectional_LSTM
-import generate_combined
+from data_pipeline import generate_combined
+from data_pipeline import data_utils as d
 import losses
-import data_utils
 
 import tensorflow as tf
 import numpy as np
 import os
 import time
 import datetime
-import matplotlib.pyplot as plt
 
 import functools
 import sys
@@ -53,23 +52,21 @@ tf.flags.DEFINE_integer("ratio_neg_back", 1, "Ratio of negative back endings")
 
 tf.flags.DEFINE_float("dropout_rate", 0.7, "Dropout rate")
 
-
 tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
 tf.flags.DEFINE_string("path_embeddings", "data/wordembeddings-dim100.word2vec", "Path to the word2vec embeddings")
 tf.flags.DEFINE_bool("use_skip_thoughts", True, "Whether we use skip thoughts for sentences embedding")
+tf.flags.DEFINE_bool("use_pronoun_contrast", False, "Whether the pronoun contrast feature vector should be added to the"
+                                                    " networks' input.")
+tf.flags.DEFINE_bool("use_n_grams_overlap", True, "Whether the n grams overlap feature vector should be added to the "
+                                                  "network's input.")
 
 tf.flags.DEFINE_string('attention', None, 'Attention type (add ~ Bahdanau, mult ~ Luong, None). Only for Roemmele ''models.')
 tf.flags.DEFINE_integer('attention_size', 1000, 'Attention size.')
-
-
 
 tf.flags.DEFINE_integer("hidden_layer_size", 100, "Size of hidden layer")
 tf.flags.DEFINE_integer("rnn_num", 2, "Number of RNNs")
 tf.flags.DEFINE_string("rnn_cell", "LSTM", "Cell type.")
 tf.flags.DEFINE_integer("rnn_cell_size", 1000, "RNN cell size")
-
-
-
 
 # Training parameters
 tf.flags.DEFINE_float("learning_rate", 0.001, "Learning rate (default: 0.001)")
@@ -139,8 +136,6 @@ if FLAGS.use_skip_thoughts:
 
 # Load sentences from numpy file, with ids but not embedded
 sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, sentence_length (5), vocab_size (30)]
-padding_sentences = np.zeros((sentences.shape[0], FLAGS.classes -1, sentences.shape[2]), dtype=np.int32)
-sentences = np.concatenate([sentences, padding_sentences], axis=1)
 
 # print(sentences[0])
 
@@ -151,19 +146,10 @@ vocab = np.load(FLAGS.data_sentences_vocab_path, allow_pickle=True)  # vocab con
 vocabLookup = dict((v,k) for k,v in vocab.item().items()) # flip our vocab dict so we can easy lookup [id: symbol]
 vocabLookup[0] = '<pad>'
 
-
-def eval_shape():
-    print("eval sentences shape", np.shape(eval_sentences))
-
-
 # eval sentences
 # six sentences, plus label
 eval_sentences = np.load(FLAGS.data_sentences_eval_path).astype(dtype=np.int32)
-eval_shape()
-if FLAGS.classes > 2:
-    padding_sentences = np.zeros((eval_sentences.shape[0], FLAGS.classes -2, eval_sentences.shape[2]), dtype=np.int32)
-    eval_sentences = np.concatenate([eval_sentences, padding_sentences], axis=1)
-eval_shape()
+print("eval sentences shape", np.shape(eval_sentences))
 
 eval_labels = np.load(FLAGS.data_sentences_eval_labels_path).astype(dtype=np.int32)
 eval_labels -= 1
@@ -183,15 +169,12 @@ assert FLAGS.classes == 2, "Classes must be 2!"
 # Create sesions
 # MODEL AND TRAINING PROCEDURE DEFINITION #
 with tf.Graph().as_default():
-    pickers = []
+    allSentences = tf.constant(np.squeeze(d.endings(sentences), axis=1))
     if FLAGS.use_skip_thoughts:
-        # Custom pickers for skip thoughts since the standard ones aren't usable
-        randomPicker = generate_combined.EmbeddedRandomPicker(SkipThoughtsEmbedder.get_train_tf_dataset().repeat(FLAGS.repeat_train_dataset))
-        backPicker = generate_combined.EmbeddedBackPicker()
+        randomPicker = PlainRandomPicker()
     else:
-        allSentences = tf.constant(np.squeeze(d.endings(sentences), axis=1))
-        randomPicker = generate_combined.RandomPicker(allSentences, len(sentences))
-        backPicker = generate_combined.BackPicker()
+        randomPicker = RandomPicker(allSentences, len(sentences))
+    backPicker = BackPicker()
 
     # Placeholder tensor for input, which is just the sentences with ids
     input_x = tf.placeholder(tf.int32, [None, FLAGS.num_context_sentences + FLAGS.classes, FLAGS.sentence_length]) # [batch_size, sentence_length]
@@ -202,24 +185,24 @@ with tf.Graph().as_default():
     handle = tf.placeholder(tf.string, shape=[])
 
     train_augment_config = {
-        'randomPicker': randomPicker,
-        'backPicker': backPicker,
+        'random_picker': randomPicker,
+        'back_picker': backPicker,
         'ratio_random': float(FLAGS.ratio_neg_random),
         'ratio_back': float(FLAGS.ratio_neg_back)
     }
-    train_augment_fn = functools.partial(generate_combined.augment_data, **train_augment_config)
+    story_creation_fn = functools.partial(generate_combined.create_story, **train_augment_config)
 
     if FLAGS.use_train_set:
         if FLAGS.use_skip_thoughts:
             train_dataset = generate_combined.get_skip_thoughts_data_iterator(
-                augment_fn=train_augment_fn,
+                story_creation_fn=story_creation_fn,
                 batch_size=FLAGS.batch_size,
                 repeat_train_dataset=FLAGS.repeat_train_dataset
             )
         else:
             train_dataset = generate_combined.get_data_iterator(
                 input_x,
-                augment_fn=train_augment_fn,
+                augment_fn=story_creation_fn,
                 batch_size=FLAGS.batch_size,
                 repeat_train_dataset=FLAGS.repeat_train_dataset
             )
@@ -243,9 +226,9 @@ with tf.Graph().as_default():
         )
     else:
         test_dataset = generate_combined.get_eval_iterator(input_x,
-                                                         input_y,
-                                                 batch_size=FLAGS.batch_size,
-                                                 repeat_eval_dataset=FLAGS.repeat_eval_dataset)
+                                                           input_y,
+                                                           batch_size=FLAGS.batch_size,
+                                                           repeat_eval_dataset=FLAGS.repeat_eval_dataset)
     
     print("Test output types", test_dataset.output_types)
 
@@ -253,15 +236,28 @@ with tf.Graph().as_default():
     train_iterator = train_dataset.make_initializable_iterator()
     test_iterator = test_dataset.make_initializable_iterator()
 
-    iter = tf.data.Iterator.from_string_handle(
-        handle, train_dataset.output_types, train_dataset.output_shapes)
+    iter = tf.data.Iterator.from_string_handle(handle, train_dataset.output_types, train_dataset.output_shapes)
+    next_batch_context, next_batch_ending1, next_batch_ending2, next_batch_features_1, next_batch_features_2, next_batch_labels = iter.get_next()
 
-    next_batch_context_x, next_batch_endings_y = iter.get_next()
-    print("--------new_batch_x------------", next_batch_context_x[0])
-    print("--------new_batch_ending_y------------", next_batch_endings_y[0])
-    num_sentences_total = FLAGS.num_context_sentences + FLAGS.classes
     sentence_length = FLAGS.sentence_embedding_length if FLAGS.use_skip_thoughts else FLAGS.sentence_length
-    next_batch_context_x.set_shape([FLAGS.batch_size, num_sentences_total, sentence_length])
+    for ending_batch in (next_batch_ending1, next_batch_ending2):
+        ending_batch.set_shape([FLAGS.batch_size, 1, sentence_length])
+        next_batch_context_shape = [FLAGS.batch_size, 1, sentence_length * FLAGS.num_context_sentences]
+    next_batch_context = tf.reshape(next_batch_context, next_batch_context_shape)
+    next_batch_context.set_shape([FLAGS.batch_size, 1, sentence_length * FLAGS.num_context_sentences])
+    features_size = 2  # TODO not hardcoding this
+    next_batch_features_1 = tf.reshape(next_batch_features_1, [FLAGS.batch_size, 1, features_size])
+    next_batch_features_2 = tf.reshape(next_batch_features_2, [FLAGS.batch_size, 1, features_size])
+    next_batch_labels.set_shape([FLAGS.batch_size, 2])
+    next_batch_endings_y = tf.argmax(next_batch_labels, axis=1, output_type=tf.int32)
+
+    next_batch_x = \
+        tf.stack(values=(
+            tf.concat(values=(next_batch_context, next_batch_ending1, next_batch_features_1), axis=2,
+                     name="full_first_ending"),
+            tf.concat(values=(next_batch_context, next_batch_ending2, next_batch_features_2), axis=2,
+                     name="full_second_ending")
+        ))
 
     train_init_op = iter.make_initializer(train_dataset, name='train_dataset')
     test_init_op = iter.make_initializer(test_dataset, name='test_dataset')
@@ -270,7 +266,8 @@ with tf.Graph().as_default():
         allow_soft_placement=FLAGS.allow_soft_placement,
         log_device_placement=FLAGS.log_device_placement,
         inter_op_parallelism_threads=FLAGS.inter_op_parallelism_threads,
-        intra_op_parallelism_threads=FLAGS.intra_op_parallelism_threads)
+        intra_op_parallelism_threads=FLAGS.intra_op_parallelism_threads
+    )
     sess = tf.Session(config=session_conf)
     with sess.as_default():
 
@@ -278,7 +275,7 @@ with tf.Graph().as_default():
             tf.set_random_seed(FLAGS.random_seed)
 
         # Build execution graph
-        network = BiDirectional_LSTM(sess, vocab, next_batch_context_x, FLAGS.attention, FLAGS.attention_size)
+        network = BiDirectional_LSTM(sess, vocab, next_batch_x, FLAGS.attention, FLAGS.attention_size)
 
         # train_logits: [batch_size]
         # eval_predictions: [batch_size] (index of prediction
@@ -304,7 +301,7 @@ with tf.Graph().as_default():
         test_handle = sess.run(test_iterator.string_handle())
 
         if FLAGS.use_train_set:
-            sess.run(train_iterator.initializer, feed_dict={input_x: sentences})
+            sess.run(train_iterator.initializer, feed_dict={} if FLAGS.use_skip_thoughts else {input_x: sentences})
         else:
             sess.run(train_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
             
@@ -315,18 +312,14 @@ with tf.Graph().as_default():
         # print("Story 1", data_utils.makeSymbolStory(iterTestSentences[0], vocabLookup))
         # print("Label 1", iterTestLabels[0])
 
-
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
-        # TODO: Define an optimizer, e.g. AdamOptimizer
         if FLAGS.optimizer == "ADAM":
             optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
         elif FLAGS.optimizer == "RMS":
             optimizer = tf.train.RMSPropOptimizer(learning_rate=FLAGS.learning_rate)
         else:
             raise RuntimeError(f"Optimizer {FLAGS.optimizer} not supported!")
-        # TODO: Define a training operation, including the global_step
-        # train_op = optimizer.minimize(loss, global_step=global_step)
 
         gradients = optimizer.compute_gradients(loss)
         clipped_gradients = [(tf.clip_by_norm(gradient, FLAGS.grad_clip), var) for gradient, var in gradients]
@@ -387,13 +380,14 @@ with tf.Graph().as_default():
                 handle: train_handle,
                 network.dropout_rate: FLAGS.dropout_rate
             }
-            fetches = [train_op, global_step, train_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x, network.train_predictions]
+            fetches = [train_op, global_step, train_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions,
+                       next_batch_x, network.train_predictions]
             _, step, summaries, loss, accuracy, by, eval, context, sanity = sess.run(fetches, feed_dict)
             print(f"{sanity}")
             print("shape context", context.shape)
             # print(f"{tl}")
             if not FLAGS.use_skip_thoughts:
-                print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
+                print("--------next_batch_x -----------", d.make_symbol_story(context[0], vocabLookup))
             print(f"labels {by}")
             print(f"predictions {eval}")
             time_str = datetime.datetime.now().isoformat()
@@ -409,11 +403,11 @@ with tf.Graph().as_default():
                 handle: test_handle,
                 network.dropout_rate: 0.0
             }
-            fetches = [global_step, dev_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_context_x]
+            fetches = [global_step, dev_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_x]
             step, summaries, loss, accuracy, by, eval, context = sess.run(fetches, feed_dict)
             time_str = datetime.datetime.now().isoformat()
             if not FLAGS.use_skip_thoughts:
-                print("--------next_batch_x -----------", d.makeSymbolStory(context[0], vocabLookup))
+                print("--------next_batch_x -----------", d.make_symbol_story(context[0], vocabLookup))
             print(f"labels {by}")
             print(f"predictions {eval}")
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))

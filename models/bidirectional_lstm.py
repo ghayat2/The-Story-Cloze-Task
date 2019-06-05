@@ -1,15 +1,14 @@
 import tensorflow as tf
 from typing import Tuple
-import data_utils
-from embedding.sentence_embedder import SkipThoughtsEmbedder
+from data_pipeline import data_utils
 
 FLAGS = tf.flags.FLAGS
 
-class BiDirectional_LSTM:
 
+class BiDirectional_LSTM:
     ACTIVATION_NODES = 1
 
-    def __init__(self, session, vocab, context, attention :str = None, attention_size : int = 1):
+    def __init__(self, session, vocab, context, attention: str = None, attention_size: int = 1):
         print("Super awesome model")
         self.input = context
         self.session = session
@@ -19,20 +18,21 @@ class BiDirectional_LSTM:
 
         self.dropout_rate = tf.placeholder_with_default(0.0, shape=())
 
-
     def _word_embeddings(self):
         # embed the words here
         self.embedding_matrix = tf.get_variable("embedding_matrix",
-                                                initializer=tf.random_uniform([FLAGS.vocab_size, FLAGS.word_embedding_dimension],
-                                                                              -1.0, 1.0),
+                                                initializer=tf.random_uniform(
+                                                    [FLAGS.vocab_size, FLAGS.word_embedding_dimension],
+                                                    -1.0, 1.0),
                                                 dtype=tf.float32,
                                                 trainable=False)
 
-        data_utils.load_embedding(self.session, self.vocab, self.embedding_matrix, FLAGS.path_embeddings, FLAGS.word_embedding_dimension,
+        data_utils.load_embedding(self.session, self.vocab, self.embedding_matrix, FLAGS.path_embeddings,
+                                  FLAGS.word_embedding_dimension,
                                   FLAGS.vocab_size)
 
         embedded_words = tf.nn.embedding_lookup(self.embedding_matrix,
-                                                     self.input)  # DIM [batch_size, sentence_len, embedding_dim]
+                                                self.input)  # DIM [batch_size, sentence_len, embedding_dim]
 
         return embedded_words
 
@@ -61,7 +61,8 @@ class BiDirectional_LSTM:
 
     def _sentence_rnn(self, per_sentence_states: tf.Tensor) -> tf.Tensor:
         assert len(per_sentence_states.get_shape()) == 3
-        assert per_sentence_states.get_shape()[1] == FLAGS.num_context_sentences + 1
+        #assert per_sentence_states.get_shape()[1] == FLAGS.num_context_sentences + 1 + \
+        #       (1 if FLAGS.use_pronoun_contrast else 0) + (1 if FLAGS.use_n_grams_overlap else 0)
         # Create the cell
         rnn_cell_sentences = self._create_cell(FLAGS.rnn_cell_size, name='sentence_cell')
 
@@ -76,7 +77,7 @@ class BiDirectional_LSTM:
         print("outputs_tensor", outputs_tensor.get_shape())
 
         sentence_states = [state]
-        
+
         if self.attention is not None:  # with attention
             with tf.variable_scope("attention"):
                 context = self._add_attention(outputs_tensor, cell_output=state, prefix="attention")
@@ -99,22 +100,19 @@ class BiDirectional_LSTM:
 
         with tf.name_scope("split_endings"):
             per_sentence_states = self._sentence_states()
-            sentence_states = per_sentence_states[:, :FLAGS.num_context_sentences, :]
+            # sentence_states = per_sentence_states[:, :FLAGS.num_context_sentences, :]
 
-            print("sentence_states", sentence_states.get_shape())
-            ending_states = per_sentence_states[:, FLAGS.num_context_sentences:, :]
-            print("-------------ENDING_STATES-----------", ending_states)
-            ending_state1 = ending_states[:, 0:1, :]
-            ending_state2 = ending_states[:, 1:2, :]
-            # sentence_states = tf.reshape(sentence_states, [FLAGS.num_context_sentences,FLAGS.batch_size,FLAGS.word_embedding_dimension])
-            # ending_states = tf.reshape(ending_states, [FLAGS.classes,FLAGS.batch_size,FLAGS.word_embedding_dimension])
-            # stories = tf.map_fn(lambda x: tf.concat([sentence_states, tf.expand_dims(x, axis = 0)], axis = 0), ending_states)
-            # stories = tf.reshape(stories, [FLAGS.classes, FLAGS.batch_size, FLAGS.num_context_sentences + 1, FLAGS.word_embedding_dimension])
+            # print("sentence_states", sentence_states.get_shape())
+            # ending_states = per_sentence_states[:, FLAGS.num_context_sentences:, :]
+            # print("-------------ENDING_STATES-----------", ending_states)
+            # ending_state1 = ending_states[:, 0:1, :]
+            # ending_state2 = ending_states[:, 1:2, :]
+            story1 = per_sentence_states[0, :, :]
+            story2 = per_sentence_states[1, :, :]
             # print("-------------ENDING_STATES-----------", stories)
 
         with tf.variable_scope("ending") as ending_scope:
             with tf.name_scope("sentence_rnn"):
-                story1 = tf.concat([sentence_states, ending_state1], axis=1)
                 print(f"Story {1}", story1)
                 res = self._sentence_rnn(story1)
                 res = self._dropout_layer(res)
@@ -125,7 +123,6 @@ class BiDirectional_LSTM:
 
         with tf.variable_scope(ending_scope, reuse=True):
             with tf.name_scope("sentence_rnn"):
-                story2 = tf.concat([sentence_states, ending_state2], axis=1)
                 print(f"Story {2}", story2)
                 res = self._sentence_rnn(story2)
                 res = self._dropout_layer(res)
@@ -151,17 +148,17 @@ class BiDirectional_LSTM:
             self.train_predictions = tf.to_int32(tf.round(self.train_probs))
 
         return eval_predictions, endings, self.train_logits
-    
+
     def _add_attention(self, outputs: tf.Tensor, cell_output: tf.Tensor, prefix="") -> tf.Tensor:
         attention_mechanism = self._create_attention(outputs)
         context, alignments, next_attention_state = self._compute_attention(
-                attention_mechanism,
-                cell_output,
-                attention_state=attention_mechanism.initial_state(FLAGS.batch_size, dtype=tf.float32))
-#        with tf.name_scope("summaries"):
-#            self._attention_summaries(alignments, prefix=prefix)
+            attention_mechanism,
+            cell_output,
+            attention_state=attention_mechanism.initial_state(FLAGS.batch_size, dtype=tf.float32))
+        #        with tf.name_scope("summaries"):
+        #            self._attention_summaries(alignments, prefix=prefix)
         return context
-    
+
     def _compute_attention(self, mechanism: tf.contrib.seq2seq.AttentionMechanism, cell_output: tf.Tensor,
                            attention_state: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
         # https://github.com/tensorflow/tensorflow/blob/r1.8/tensorflow/contrib/seq2seq
@@ -177,7 +174,7 @@ class BiDirectional_LSTM:
         # We then squeeze out the singleton dim.
         context = tf.squeeze(context, axis=[1])
         return context, alignments, next_attention_state
-    
+
     def _create_attention(self, encoder_outputs: tf.Tensor) -> tf.contrib.seq2seq.AttentionMechanism:
         if self.attention == "add":
             attention = tf.contrib.seq2seq.BahdanauAttention
@@ -186,13 +183,13 @@ class BiDirectional_LSTM:
         else:
             raise ValueError(f"Unknown attention {self.attention}. Possible values: add, mult.")
         return attention(num_units=self.attention_size, memory=encoder_outputs, dtype=tf.float32)
-    
+
     def _attention_summaries(self, alignments: tf.Tensor, prefix="") -> None:
         with self.summary_writer.as_default():
             with tf.contrib.summary.record_summaries_every_n_global_steps(50):
                 img = self._attention_images_summary(alignments, prefix=f"{prefix}/train")
                 self.summaries["train"].append(img)
-                
+
     def _attention_images_summary(self, alignments: tf.Tensor, prefix: str = "") -> tf.Operation:
         # https://github.com/tensorflow/nmt/blob/master/nmt/attention_model.py
         """
@@ -206,5 +203,3 @@ class BiDirectional_LSTM:
         attention_images *= 255
         attention_summary = tf.contrib.summary.image(f"{prefix}/attention_images", attention_images)
         return attention_summary
-                
-                

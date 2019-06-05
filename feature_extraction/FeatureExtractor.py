@@ -3,7 +3,7 @@ from functools import reduce
 import pandas as pd
 import tensorflow_transform as tft
 import tensorflow as tf
-from data_utils import sentences_to_sparse_tensor as to_sparse
+from data_pipeline.data_utils import sentences_to_sparse_tensor as to_sparse
 import numpy as np
 import nltk
 from definitions import ROOT_DIR
@@ -15,12 +15,12 @@ Inspired by https://aclweb.org/anthology/W17-0908
 
 class FeatureExtractor:
 
-    def __init__(self, story):
+    def __init__(self, context):
         """
 
-        :param story: First 4 sentences of the story. Array of strings.
+        :param context: First 4 sentences of the story. Array of strings.
         """
-        self.story = story
+        self.story = context
 
     @staticmethod
     def generate_feature_records_train_set(tf_session, for_methods=("pronoun_contrast", "n_grams_overlap")):
@@ -97,7 +97,7 @@ class FeatureExtractor:
         ending_pronouns_mismatch = []
         for story_pronoun in story_pronouns:
             ending_pronouns_mismatch.append(1 if (story_pronoun in ending_pronouns) else 0)
-        return tf.constant(ending_pronouns_mismatch)
+        return tf.constant(sum(ending_pronouns_mismatch), shape=[1])
 
     def n_grams_overlap(self, ending, ngram_range=(1, 3), character_count=True):
         """
@@ -140,7 +140,7 @@ class FeatureExtractor:
             )
 
             index = index + tf.constant(1, dtype=tf.int32)
-        return ending_ngram_overlap
+        return tf.reduce_sum(ending_ngram_overlap, keep_dims=True)
 
     def _n_grams(self, ending, ngram_range):
         """
@@ -201,6 +201,3 @@ def test_pronoun_contrast():
             mis2 = fe.pronoun_contrast(ending2)
             print(mis1.eval())
             print(mis2.eval())
-
-
-save_all_features()
