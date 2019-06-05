@@ -43,7 +43,7 @@ Discriminator
  - Multiple endings: 6
     - 3/3 backwards/random --> Gabriel & Hidde
  - Dropout --> Ji
- - Introduce features
+ - Introduce features --> Ji & Arthur
     
 Generator
  - Implement near-generation

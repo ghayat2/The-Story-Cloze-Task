@@ -8,3 +8,4 @@ pandas==0.24.2
 tensorflow-transform==0.13.
 keras==2.2.4
 nltk==3.4.1
+vaderSentiment==3.2.1

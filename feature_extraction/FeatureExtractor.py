@@ -7,6 +7,7 @@ from data_utils import sentences_to_sparse_tensor as to_sparse
 import numpy as np
 import nltk
 from definitions import ROOT_DIR
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 """
 Inspired by https://aclweb.org/anthology/W17-0908
@@ -23,7 +24,7 @@ class FeatureExtractor:
         self.story = story
 
     @staticmethod
-    def generate_feature_records_train_set(tf_session, for_methods=("pronoun_contrast", "n_grams_overlap")):
+    def generate_feature_records_train_set(tf_session, for_methods=("pronoun_contrast", "n_grams_overlap","sentiment_analysis")):
         """
         Generates .tfrecords files containing the extracted features for all the endings in the file at
         the given filepath.
@@ -41,6 +42,8 @@ class FeatureExtractor:
                     features[method].append(fe.pronoun_contrast(ending))
                 elif method == "n_grams_overlap":
                     features[method].append(fe.n_grams_overlap(ending))
+                elif method == "sentiment_analysis":
+                    features[method].append(fe.sentiment_analysis(ending))
                 else:
                     raise NotImplementedError("Feature extraction method not implemented.")
 
@@ -81,7 +84,7 @@ class FeatureExtractor:
                         break
 
     @staticmethod
-    def generate_feature_records_eval_set(for_methods=("pronoun_contrast", "n_grams_overlap")):
+    def generate_feature_records_eval_set(for_methods=("pronoun_contrast", "n_grams_overlap","sentiment_analysis")):
         raise NotImplementedError()
 
     def pronoun_contrast(self, ending):
@@ -165,6 +168,18 @@ class FeatureExtractor:
     def _merged_story(self):
         return reduce(lambda sen1, sen2: sen1 + " " + sen2, self.story)
 
+    def sentiment_analysis(self, ending):
+        self.story.append(ending)
+        analyzer = SentimentIntensityAnalyzer()
+        score = []
+        for stc in stcs:
+            vs = analyzer.polarity_scores(sentence)
+            score.append(list(vs.values()))
+        score = np.array(score)
+
+        return score
+
+
 
 def save_all_features():
     with tf.Graph().as_default():
@@ -204,3 +219,5 @@ def test_pronoun_contrast():
 
 
 save_all_features()
+
+FeatureExtractor().
