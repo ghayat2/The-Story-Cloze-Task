@@ -8,10 +8,15 @@ encoder = SkipThoughtsEmbedder()
 
 
 def create_story(*story_tensors, random_picker=None, back_picker=None, ratio_random=0, ratio_back=0):
-    def create_story_python(*data):
-        if len(data) != 5 and len(data) != 7:
+    def create_story_python(*raw_data):
+        if len(raw_data) != 5 and len(raw_data) != 7:
             raise AssertionError("Data point should contain at either 5 (train) or 7 (eval) elements.")
-        data = list(map(lambda t: t.numpy().decode("utf-8 "), data))
+
+        data = list(map(lambda t: t.numpy().decode("utf-8 "), raw_data[:6]))
+        # Takes care of adding the label
+        if len(raw_data) == 7:
+            data.append(raw_data[6].numpy())
+
         story = Story(context=data[:4], ending1=data[4])
         if len(data) == 5:
             # Story from the training set

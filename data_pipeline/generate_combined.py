@@ -17,7 +17,7 @@ def get_data_iterator(sentences,
         .repeat(repeat_train_dataset) \
         .map(split_sentences, num_parallel_calls=threads) \
         .map(augment_fn, num_parallel_calls=threads) \
-        .shuffle(buffer_size=2) \
+        .shuffle(buffer_size=FLAGS.train_shuffle_buffer_size) \
         .batch(batch_size, drop_remainder=True)
 
     return dataset
@@ -38,7 +38,7 @@ def get_skip_thoughts_data_iterator(story_creation_fn=create_story, threads=5, b
     return train_stories \
         .map(story_creation_fn)\
         .repeat(repeat_train_dataset) \
-        .shuffle(2) \
+        .shuffle(FLAGS.train_shuffle_buffer_size) \
         .batch(batch_size, drop_remainder=True)
 
 
@@ -53,7 +53,7 @@ def get_eval_iterator(sentences, labels,
                       repeat_eval_dataset=5):
     # Create dataset from image and label paths
     dataset = tf.data.Dataset.from_tensor_slices((sentences, labels)) \
-        .shuffle(buffer_size=10) \
+        .shuffle(buffer_size=FLAGS.test_shuffle_buffer_size) \
         .repeat(repeat_eval_dataset) \
         .batch(batch_size, drop_remainder=True)
     return dataset
@@ -76,6 +76,6 @@ def get_skip_thoughts_eval_iterator(threads=5, batch_size=1, repeat_eval_dataset
     # Zips the embeddings with the labels
     return train_stories\
         .map(create_story)\
-        .shuffle(buffer_size=10) \
+        .shuffle(buffer_size=FLAGS.test_shuffle_buffer_size) \
         .repeat(repeat_eval_dataset) \
         .batch(batch_size, drop_remainder=True)
