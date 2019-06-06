@@ -1,4 +1,7 @@
+from functools import reduce
+
 import tensorflow as tf
+import numpy as np
 from data_pipeline.story import Story
 from embedding.sentence_embedder import SkipThoughtsEmbedder
 from feature_extraction.FeatureExtractor import FeatureExtractor
@@ -7,12 +10,22 @@ CONTEXT_LENGTH = 4
 encoder = SkipThoughtsEmbedder()
 
 
-def create_story(*story_tensors, random_picker=None, back_picker=None, ratio_random=0, ratio_back=0):
+def create_story(*story_tensors,
+                 sentence_embeddings=True,
+                 random_picker=None,
+                 back_picker=None,
+                 ratio_random=0,
+                 ratio_back=0):
+
     def create_story_python(*raw_data):
         if len(raw_data) != 5 and len(raw_data) != 7:
             raise AssertionError("Data point should contain at either 5 (train) or 7 (eval) elements.")
 
-        data = list(map(lambda t: t.numpy().decode("utf-8 "), raw_data[:6]))
+        data = list(map(lambda t: t.numpy(), raw_data[:6]))
+        if sentence_embeddings:
+            data = list(map(lambda t: t.decode("utf-8 "), data))
+        else:
+            data = list(map(lambda ids: reduce(lambda id1, id2: vocabLookup[id1] + " " + vocabLookup[id2], ids), data))
         # Takes care of adding the label
         if len(raw_data) == 7:
             data.append(raw_data[6].numpy())
@@ -28,11 +41,15 @@ def create_story(*story_tensors, random_picker=None, back_picker=None, ratio_ran
             story.set_labels((1, 0) if data[6] == 1 else (0, 1))
         # return story
         story = get_features(story)
-        return compute_sentence_embeddings(story)
+        if sentence_embeddings:
+            story = compute_sentence_embeddings(story)
+        return story.context, story.ending1, story.ending2, story.features_ending_1, story.features_ending_2, story.labels
 
-    return tf.py_function(create_story_python, inp=story_tensors, Tout=[
-        tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.int32
-    ])
+    if sentence_embeddings:
+        output_types = [tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.int32]
+    else:
+        output_types = [tf.int32 for _ in range(6)]
+    return tf.py_function(create_story_python, inp=story_tensors, Tout=output_types)
 
 
 def augment_data(story, random_picker, back_picker, ratio_random=0, ratio_back=0):  # Augment the data
@@ -87,7 +104,7 @@ def compute_sentence_embeddings(story):
     story.context = embeddings[:len(story.context)]
     story.ending1 = [embeddings[len(story.context)]]
     story.ending2 = [embeddings[-1]]
-    return story.context, story.ending1, story.ending2, story.features_ending_1, story.features_ending_2, story.labels
+    return story
 
 
 def endings(sentences):

@@ -67,6 +67,8 @@ tf.flags.DEFINE_integer("hidden_layer_size", 100, "Size of hidden layer")
 tf.flags.DEFINE_integer("rnn_num", 2, "Number of RNNs")
 tf.flags.DEFINE_string("rnn_cell", "LSTM", "Cell type.")
 tf.flags.DEFINE_integer("rnn_cell_size", 1000, "RNN cell size")
+tf.flags.DEFINE_integer("feature_integration_layer_output_size", 100, "Number of outputs from the dense layer after the"
+                                                                      " RNN cell that includes the features")
 
 # Training parameters
 tf.flags.DEFINE_float("learning_rate", 0.001, "Learning rate (default: 0.001)")
@@ -138,7 +140,9 @@ if FLAGS.use_skip_thoughts:
 
 # Load sentences from numpy file, with ids but not embedded
 sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, sentence_length (5), vocab_size (30)]
-
+if not FLAGS.use_skip_thoughts:
+    padding_sentences = np.zeros((sentences.shape[0], FLAGS.classes -1, sentences.shape[2]), dtype=np.int32)
+    sentences = np.concatenate([sentences, padding_sentences], axis=1)
 # print(sentences[0])
 
 print(sentences.shape)
@@ -172,10 +176,7 @@ assert FLAGS.classes == 2, "Classes must be 2!"
 # MODEL AND TRAINING PROCEDURE DEFINITION #
 with tf.Graph().as_default():
     allSentences = tf.constant(np.squeeze(d.endings(sentences), axis=1))
-    if FLAGS.use_skip_thoughts:
-        randomPicker = PlainRandomPicker()
-    else:
-        randomPicker = RandomPicker(allSentences, len(sentences))
+    randomPicker = PlainRandomPicker()
     backPicker = BackPicker()
 
     # Placeholder tensor for input, which is just the sentences with ids
@@ -190,7 +191,8 @@ with tf.Graph().as_default():
         'random_picker': randomPicker,
         'back_picker': backPicker,
         'ratio_random': float(FLAGS.ratio_neg_random),
-        'ratio_back': float(FLAGS.ratio_neg_back)
+        'ratio_back': float(FLAGS.ratio_neg_back),
+        'sentence_embeddings': bool(FLAGS.use_skip_thoughts)
     }
     story_creation_fn = functools.partial(generate_combined.create_story, **train_augment_config)
 
@@ -253,13 +255,14 @@ with tf.Graph().as_default():
     next_batch_labels.set_shape([FLAGS.batch_size, 2])
     next_batch_endings_y = tf.argmax(next_batch_labels, axis=1, output_type=tf.int32)
 
-    next_batch_x = \
-        tf.stack(values=(
-            tf.concat(values=(next_batch_context, next_batch_ending1, next_batch_features_1), axis=2,
-                     name="full_first_ending"),
-            tf.concat(values=(next_batch_context, next_batch_ending2, next_batch_features_2), axis=2,
-                     name="full_second_ending")
-        ))
+
+    next_batch_x = {
+        "context": next_batch_context,
+        "ending1": next_batch_ending1,
+        "ending2": next_batch_ending2,
+        "features1": next_batch_features_1,
+        "features2": next_batch_features_2
+    }
 
     train_init_op = iter.make_initializer(train_dataset, name='train_dataset')
     test_init_op = iter.make_initializer(test_dataset, name='test_dataset')
@@ -384,8 +387,9 @@ with tf.Graph().as_default():
             }
             fetches = [train_op, global_step, train_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions,
                        next_batch_x, network.train_predictions]
-            _, step, summaries, loss, accuracy, by, eval, context, sanity = sess.run(fetches, feed_dict)
+            _, step, summaries, loss, accuracy, by, eval, story, sanity = sess.run(fetches, feed_dict)
             print(f"{sanity}")
+            context = story["context"]
             print("shape context", context.shape)
             # print(f"{tl}")
             if not FLAGS.use_skip_thoughts:

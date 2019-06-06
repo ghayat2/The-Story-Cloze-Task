@@ -31,23 +31,26 @@ class BiDirectional_LSTM:
                                   FLAGS.word_embedding_dimension,
                                   FLAGS.vocab_size)
 
-        embedded_words = tf.nn.embedding_lookup(self.embedding_matrix,
-                                                self.input)  # DIM [batch_size, sentence_len, embedding_dim]
+        embedded_context = tf.nn.embedding_lookup(self.embedding_matrix, self.input["context"])  # DIM [batch_size, sentence_len, embedding_dim]
+        embedded_ending1 = tf.nn.embedding_lookup(self.embedding_matrix, self.input["ending1"])
+        embedded_ending2 = tf.nn.embedding_lookup(self.embedding_matrix, self.input["ending2"])
 
-        return embedded_words
+        return embedded_context, embedded_ending1, embedded_ending2
 
     def _sentence_states(self) -> tf.Tensor:
         if FLAGS.use_skip_thoughts:
             return self.input
 
         with tf.name_scope("word_embeddings"):
-            sentence_word_embeddings = self._word_embeddings()
-
+            (context_embedding, ending1_embedding, ending2_embedding) = self._word_embeddings()
+            alternative_1 = tf.concat(values=[context_embedding, ending1_embedding], axis=2)
+            alternative_2 = tf.concat(values=[context_embedding, ending2_embedding], axis=2)
+            per_sentence_states = []
             with tf.variable_scope("word_rnn"):
                 # per_sentence_states = self._word_rnn(sentence_word_embeddings)
-                per_sentence_states = tf.reduce_mean(sentence_word_embeddings, axis=2)
-
-            return per_sentence_states
+                per_sentence_states.append(tf.reduce_mean(alternative_1, axis=2))
+                per_sentence_states.append(tf.reduce_mean(alternative_2, axis=2))
+            return tf.stack(values=per_sentence_states, name="per_sentence_states")
 
     def _create_cell(self, rnn_cell_dim, name=None) -> tf.nn.rnn_cell.RNNCell:
         if FLAGS.rnn_cell == "LSTM":
@@ -94,30 +97,43 @@ class BiDirectional_LSTM:
     def _dropout_layer(self, state: tf.Tensor) -> tf.Tensor:
         return tf.nn.dropout(state, rate=self.dropout_rate)
 
+    def _integrate_features(self, state: tf.Tensor, features) -> tf.Tensor:
+        state = tf.concat(values=(state, tf.squeeze(features)), axis=1)
+        return tf.layers.dense(state, FLAGS.feature_integration_layer_output_size,
+                               activation=tf.nn.relu, name="features_dense")
+
     def build_model(self):
 
         with tf.name_scope("split_endings"):
             per_sentence_states = self._sentence_states()
-            story1 = per_sentence_states[0, :, :]
-            story2 = per_sentence_states[1, :, :]
+            alternative1 = tf.concat(values=(per_sentence_states["context"], per_sentence_states["ending1"]), axis=2)
+            alternative2 = tf.concat(values=(per_sentence_states["context"], per_sentence_states["ending2"]), axis=2)
 
         with tf.variable_scope("ending") as ending_scope:
             with tf.name_scope("sentence_rnn"):
-                print(f"Story {1}", story1)
-                res = self._sentence_rnn(story1)
+                print(f"Story {1}", alternative1)
+                res = self._sentence_rnn(alternative1)
                 res = self._dropout_layer(res)
 
                 print("RES2", res)
+
+            with tf.name_scope("features_dense"):
+                res = self._integrate_features(res, per_sentence_states["features1"])
+
             with tf.name_scope("fc"):
                 ending_outputs1 = self._output_fc(res)
 
         with tf.variable_scope(ending_scope, reuse=True):
             with tf.name_scope("sentence_rnn"):
-                print(f"Story {2}", story2)
-                res = self._sentence_rnn(story2)
+                print(f"Story {2}", alternative2)
+                res = self._sentence_rnn(alternative2)
                 res = self._dropout_layer(res)
 
                 print("RES2", res)
+
+            with tf.name_scope("features_dense"):
+                res = self._integrate_features(res, per_sentence_states["features2"])
+
             with tf.name_scope("fc"):
                 ending_outputs2 = self._output_fc(res)
 

@@ -13,9 +13,9 @@ def get_data_iterator(sentences,
                       batch_size=1,
                       repeat_train_dataset=5):
     # Create dataset from image and label paths
-    dataset = tf.data.Dataset.from_tensor_slices(sentences) \
+    dataset = tf.data.Dataset.from_tensor_slices(sentences[:, :5, :]) \
+        .map(lambda t: tf.unstack(t)) \
         .repeat(repeat_train_dataset) \
-        .map(split_sentences, num_parallel_calls=threads) \
         .map(augment_fn, num_parallel_calls=threads) \
         .shuffle(buffer_size=FLAGS.train_shuffle_buffer_size) \
         .batch(batch_size, drop_remainder=True)
@@ -47,12 +47,14 @@ def transform_labels_onehot(sentences, labels, threads=5):
     return sentences, one_hot
 
 
-def get_eval_iterator(sentences, labels,
+def get_eval_iterator(stories, labels,
                       threads=5,
                       batch_size=1,
                       repeat_eval_dataset=5):
     # Create dataset from image and label paths
-    dataset = tf.data.Dataset.from_tensor_slices((sentences, labels)) \
+    dataset = tf.data.Dataset.from_tensor_slices((stories, labels)) \
+        .map(lambda story, label: tf.unstack(story) + [label])\
+        .map(functools.partial(create_story, sentence_embeddings=False))\
         .shuffle(buffer_size=FLAGS.test_shuffle_buffer_size) \
         .repeat(repeat_eval_dataset) \
         .batch(batch_size, drop_remainder=True)
