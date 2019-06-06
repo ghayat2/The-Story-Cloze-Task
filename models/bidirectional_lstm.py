@@ -61,8 +61,6 @@ class BiDirectional_LSTM:
 
     def _sentence_rnn(self, per_sentence_states: tf.Tensor) -> tf.Tensor:
         assert len(per_sentence_states.get_shape()) == 3
-        #assert per_sentence_states.get_shape()[1] == FLAGS.num_context_sentences + 1 + \
-        #       (1 if FLAGS.use_pronoun_contrast else 0) + (1 if FLAGS.use_n_grams_overlap else 0)
         # Create the cell
         rnn_cell_sentences = self._create_cell(FLAGS.rnn_cell_size, name='sentence_cell')
 
@@ -100,16 +98,8 @@ class BiDirectional_LSTM:
 
         with tf.name_scope("split_endings"):
             per_sentence_states = self._sentence_states()
-            # sentence_states = per_sentence_states[:, :FLAGS.num_context_sentences, :]
-
-            # print("sentence_states", sentence_states.get_shape())
-            # ending_states = per_sentence_states[:, FLAGS.num_context_sentences:, :]
-            # print("-------------ENDING_STATES-----------", ending_states)
-            # ending_state1 = ending_states[:, 0:1, :]
-            # ending_state2 = ending_states[:, 1:2, :]
             story1 = per_sentence_states[0, :, :]
             story2 = per_sentence_states[1, :, :]
-            # print("-------------ENDING_STATES-----------", stories)
 
         with tf.variable_scope("ending") as ending_scope:
             with tf.name_scope("sentence_rnn"):

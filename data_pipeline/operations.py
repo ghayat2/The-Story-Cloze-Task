@@ -55,45 +55,38 @@ def augment_data(story, random_picker, back_picker, ratio_random=0, ratio_back=0
 
 
 def get_features(story, for_methods=("pronoun_contrast", "n_grams_overlap")):
-    features1 = {method: [] for method in for_methods}
-    features2 = {method: [] for method in for_methods}
+    features1 = []
+    features2 = []
 
     fe = FeatureExtractor(story.context)
     for method in for_methods:
         if method == "pronoun_contrast":
-            features1[method].append(fe.pronoun_contrast(story.ending1))
-            features2[method].append(fe.pronoun_contrast(story.ending2))
+            features1.append(fe.pronoun_contrast(story.ending1))
+            features2.append(fe.pronoun_contrast(story.ending2))
         elif method == "n_grams_overlap":
-            features1[method].append(fe.n_grams_overlap(story.ending1))
-            features2[method].append(fe.n_grams_overlap(story.ending2))
+            features1.append(fe.n_grams_overlap(story.ending1))
+            features2.append(fe.n_grams_overlap(story.ending2))
 
-    story.features_ending_1 = tf.cast(tf.concat(list(features1.values()), axis=0), dtype=tf.float32)
-    story.features_ending_2 = tf.cast(tf.concat(list(features2.values()), axis=0), dtype=tf.float32)
+    story.features_ending_1 = tf.cast(tf.concat(features1, axis=0), dtype=tf.float32)
+    story.features_ending_2 = tf.cast(tf.concat(features2, axis=0), dtype=tf.float32)
     return story
 
 
 def compute_sentence_embeddings(story):
     def embed_sentences(*sentences):
         sentences = list(map(lambda s: s.numpy().decode("utf-8"), sentences))
-        embeddings = encoder.encode(sentences)
-        return tuple(embeddings)
+        _embeddings = encoder.encode(sentences)
+        return tuple(_embeddings)
 
     # Embeds the context and the two endings
-    story.context = tf.py_function(
+    embeddings = tf.py_function(
         embed_sentences,
-        inp=story.context,
-        Tout=[tf.float32 for _ in range(4)]
+        inp=story.context + [story.ending1, story.ending2],
+        Tout=[tf.float32 for _ in range(len(story.context) + 2)]
     )
-    story.ending1 = tf.py_function(
-        embed_sentences,
-        inp=[story.ending1],
-        Tout=[tf.float32]
-    )
-    story.ending2 = tf.py_function(
-        embed_sentences,
-        inp=[story.ending2],
-        Tout=[tf.float32]
-    )
+    story.context = embeddings[:len(story.context)]
+    story.ending1 = [embeddings[len(story.context)]]
+    story.ending2 = [embeddings[-1]]
     return story.context, story.ending1, story.ending2, story.features_ending_1, story.features_ending_2, story.labels
 
 

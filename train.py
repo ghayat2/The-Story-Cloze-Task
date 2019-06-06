@@ -55,7 +55,7 @@ tf.flags.DEFINE_float("dropout_rate", 0.7, "Dropout rate")
 tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
 tf.flags.DEFINE_string("path_embeddings", "data/wordembeddings-dim100.word2vec", "Path to the word2vec embeddings")
 tf.flags.DEFINE_bool("use_skip_thoughts", True, "Whether we use skip thoughts for sentences embedding")
-tf.flags.DEFINE_bool("use_pronoun_contrast", False, "Whether the pronoun contrast feature vector should be added to the"
+tf.flags.DEFINE_bool("use_pronoun_contrast", True, "Whether the pronoun contrast feature vector should be added to the"
                                                     " networks' input.")
 tf.flags.DEFINE_bool("use_n_grams_overlap", True, "Whether the n grams overlap feature vector should be added to the "
                                                   "network's input.")

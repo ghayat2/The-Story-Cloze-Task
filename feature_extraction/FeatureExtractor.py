@@ -51,19 +51,21 @@ class FeatureExtractor:
         )
 
     def pronoun_contrast(self, ending):
-        get_pronouns = lambda strings: list(map(
-            lambda word_and_tag: word_and_tag[0],
-            filter(
-                lambda word_and_tag: "PRP" in word_and_tag[1],
-                nltk.pos_tag(nltk.word_tokenize(strings))
-            )
-        ))
+        def get_pronouns(strings):
+            return list(map(
+                lambda word_and_tag: word_and_tag[0],
+                filter(
+                    lambda word_and_tag: "PRP" in word_and_tag[1],
+                    nltk.pos_tag(nltk.word_tokenize(strings))
+                )
+            ))
         story_pronouns = get_pronouns(self._merged_story())
         ending_pronouns = get_pronouns(ending)
-        ending_pronouns_mismatch = []
+        ending_pronouns_matches = 0
         for story_pronoun in story_pronouns:
-            ending_pronouns_mismatch.append(1 if (story_pronoun in ending_pronouns) else 0)
-        return ending_pronouns_mismatch
+            if story_pronoun in ending_pronouns:
+                ending_pronouns_matches += 1
+        return tf.constant(ending_pronouns_matches, shape=[1])
 
     def n_grams_overlap(self, ending, ngram_range=range(1, 4), character_count=True):
         def preprocess(s):
@@ -74,18 +76,12 @@ class FeatureExtractor:
         story_ngrams = list(nltk.ngrams(story, n) for n in ngram_range)
 
         # Checks for n-gram matchings.
-        ending_ngram_overlaps = []
-        ind = 0
+        ending_ngram_overlaps = 0
         for n in range(len(ngram_range)):
             for story_gram in story_ngrams[n]:
                 if story_gram in ending_grams[n]:
-                    ending_ngram_overlaps.append(
-                        sum(len(w) for w in story_gram) if character_count else 1
-                    )
-                else:
-                    ending_ngram_overlaps.append(0)
-                ind += 1
-        return ending_ngram_overlaps
+                    ending_ngram_overlaps += sum(len(w) for w in story_gram) if character_count else 1
+        return tf.constant(ending_ngram_overlaps, shape=[1])
 
     def _merged_story(self):
         return reduce(lambda sen1, sen2: sen1 + " " + sen2, self.story)
