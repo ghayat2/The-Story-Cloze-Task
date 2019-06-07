@@ -18,7 +18,7 @@ import sys
 
 # PARAMETERS #
 # Data loading parameters
-tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data used for validation (default: 10%)")
+tf.flags.DEFINE_float("dev_sample_percentage", .2, "Percentage of the training data used for validation (default: 10%)")
 tf.flags.DEFINE_string("data_sentences_path", "./data/processed/train_stories.csv.npy", "Path to sentences file")
 tf.flags.DEFINE_string("data_sentences_vocab_path", "./data/processed/train_stories.csv_vocab.npy", "Path to sentences vocab file")
 tf.flags.DEFINE_string("data_sentences_eval_path", "./data/processed/eval_stories.csv.npy", "Path to eval sentences file")
@@ -307,10 +307,14 @@ with tf.Graph().as_default():
 
         if FLAGS.use_train_set:
             sess.run(train_iterator.initializer, feed_dict={} if FLAGS.use_skip_thoughts else {input_x: sentences})
+            sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
         else:
-            sess.run(train_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
-            
-        sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences, input_y: eval_labels})
+            train_sentences_percentage = int((1 - FLAGS.dev_sample_percentage) * len(eval_sentences))
+            train_labels_percentage = int((1 - FLAGS.dev_sample_percentage) * len(eval_labels))
+            sess.run(train_iterator.initializer, feed_dict={input_x: eval_sentences[:train_sentences_percentage],
+                                                            input_y: eval_labels[:train_labels_percentage]})
+            sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences[train_sentences_percentage:],
+                                                           input_y: eval_labels[train_labels_percentage:]})
 
         # Iterator test for debugging to compare inputs
         # iterTestSentences, iterTestLabels = sess.run([next_batch_context_x, next_batch_endings_y], {handle: train_handle})
