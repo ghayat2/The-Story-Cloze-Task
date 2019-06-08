@@ -3,8 +3,7 @@ from pathlib import Path
 from data_pipeline.ending_pickers import RandomPicker, BackPicker, PlainRandomPicker
 from embedding.sentence_embedder import SkipThoughtsEmbedder
 from models.bidirectional_lstm import BiDirectional_LSTM
-from data_pipeline import generate_combined
-from data_pipeline import data_utils as d
+from data_pipeline import generate_combined, data_utils as d, operations
 import losses
 
 import tensorflow as tf
@@ -45,6 +44,7 @@ tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
 
 tf.flags.DEFINE_integer("sentence_embedding_length", 4800, "Length of the sentence embeddings")
 
+tf.flags.DEFINE_integer("num_features", 22, "Number of features")
 tf.flags.DEFINE_integer("num_neg_random", 3, "Number of negative random endings")
 tf.flags.DEFINE_integer("num_neg_back", 2, "Number of negative back endings")
 tf.flags.DEFINE_integer("ratio_neg_random", 5, "Ratio of negative random endings")
@@ -150,8 +150,9 @@ if not FLAGS.use_skip_thoughts:
 print(sentences.shape)
 # sentences = sentences[:10, :, :]
 
-vocab = np.load(FLAGS.data_sentences_vocab_path, allow_pickle=True)  # vocab contains [symbol: id]
-vocabLookup = dict((v,k) for k,v in vocab.item().items()) # flip our vocab dict so we can easy lookup [id: symbol]
+init = np.load(FLAGS.data_sentences_vocab_path, allow_pickle=True)  # vocab contains [symbol: id]
+vocab = dict((k,v) for k,v in init.item().items())
+vocabLookup = dict((v,k) for k,v in init.item().items()) # flip our vocab dict so we can easy lookup [id: symbol]
 vocabLookup[0] = '<pad>'
 
 # eval sentences
@@ -194,9 +195,11 @@ with tf.Graph().as_default():
         'back_picker': backPicker,
         'ratio_random': float(FLAGS.ratio_neg_random),
         'ratio_back': float(FLAGS.ratio_neg_back),
-        'sentence_embeddings': bool(FLAGS.use_skip_thoughts)
+        'use_skip_thoughts': bool(FLAGS.use_skip_thoughts),
+        'vocabLookup': vocabLookup,
+        'vocab': vocab
     }
-    story_creation_fn = functools.partial(generate_combined.create_story, **train_augment_config)
+    story_creation_fn = functools.partial(operations.create_story, **train_augment_config)
 
     if FLAGS.use_train_set:
         if FLAGS.use_skip_thoughts:
@@ -208,7 +211,7 @@ with tf.Graph().as_default():
         else:
             train_dataset = generate_combined.get_data_iterator(
                 input_x,
-                augment_fn=story_creation_fn,
+                story_creation_fn=story_creation_fn,
                 batch_size=FLAGS.batch_size,
                 repeat_train_dataset=FLAGS.repeat_train_dataset
             )
@@ -222,6 +225,7 @@ with tf.Graph().as_default():
             train_dataset = generate_combined.get_eval_iterator(
                 input_x,
                 input_y,
+                story_creation_fn=story_creation_fn,
                 batch_size=FLAGS.batch_size,
                 repeat_eval_dataset=FLAGS.repeat_train_dataset
             )
@@ -233,6 +237,7 @@ with tf.Graph().as_default():
     else:
         test_dataset = generate_combined.get_eval_iterator(input_x,
                                                            input_y,
+                                                           story_creation_fn=story_creation_fn,
                                                            batch_size=FLAGS.batch_size,
                                                            repeat_eval_dataset=FLAGS.repeat_eval_dataset)
     
@@ -248,15 +253,17 @@ with tf.Graph().as_default():
     sentence_length = FLAGS.sentence_embedding_length if FLAGS.use_skip_thoughts else FLAGS.sentence_length
     for ending_batch in (next_batch_ending1, next_batch_ending2):
         ending_batch.set_shape([FLAGS.batch_size, 1, sentence_length])
-        next_batch_context_shape = [FLAGS.batch_size, 1, sentence_length * FLAGS.num_context_sentences]
+        if FLAGS.use_skip_thoughts:
+            next_batch_context_shape = [FLAGS.batch_size, 1, sentence_length * FLAGS.num_context_sentences]
+        else:
+            next_batch_context_shape = [FLAGS.batch_size, FLAGS.num_context_sentences, sentence_length]
     next_batch_context = tf.reshape(next_batch_context, next_batch_context_shape)
-    next_batch_context.set_shape([FLAGS.batch_size, 1, sentence_length * FLAGS.num_context_sentences])
-    features_size = 22  # TODO not hardcoding this
+    next_batch_context.set_shape(next_batch_context_shape)
+    features_size = FLAGS.num_features
     next_batch_features_1 = tf.reshape(next_batch_features_1, [FLAGS.batch_size, 1, features_size])
     next_batch_features_2 = tf.reshape(next_batch_features_2, [FLAGS.batch_size, 1, features_size])
     next_batch_labels.set_shape([FLAGS.batch_size, 2])
     next_batch_endings_y = tf.argmax(next_batch_labels, axis=1, output_type=tf.int32)
-
 
     next_batch_x = {
         "context": next_batch_context,
