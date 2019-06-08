@@ -9,22 +9,22 @@ class FeatureReader:
     """
 
     def load_n_grams_overlap_train(self):
-        return self._load_n_grams_overlap("train")
+        return self._load_n_grams_overlap("train_stories", "sentence5")
 
     def load_n_grams_overlap_eval(self):
-        return self._load_n_grams_overlap("eval")
+        return (self._load_n_grams_overlap("eval_stories", f"randomfifthsentencequiz{i}") for i in (1, 2))
 
     def load_pronoun_contrast_train(self):
-        return self._load_pronoun_contrast("train")
+        return self._load_pronoun_contrast("train_stories", "sentence5")
 
     def load_pronoun_contrast_eval(self):
-        return self._load_pronoun_contrast("eval")
+        return (self._load_pronoun_contrast("eval_stories", f"randomfifthsentencequiz{i}") for i in (1, 2))
 
-    def _load_n_grams_overlap(self, ds_type):
-        return self._load_features(f"{ROOT_DIR}/data/features/n_grams_overlap_{ds_type}.tfrecords")
+    def _load_n_grams_overlap(self, ds_type, ending_key):
+        return self._load_features(f"{ROOT_DIR}/data/features/n_grams_overlap_{ds_type}_{ending_key}.tfrecords")
 
-    def _load_pronoun_contrast(self, ds_type):
-        return self._load_features(f"{ROOT_DIR}/data/features/pronoun_contrast_{ds_type}.tfrecords")
+    def _load_pronoun_contrast(self, ds_type, ending_key):
+        return self._load_features(f"{ROOT_DIR}/data/features/pronoun_contrast_{ds_type}_{ending_key}.tfrecords")
 
     def _load_features(self, features_filepath):
         def extract_fn(data_record):
@@ -43,7 +43,7 @@ def test_loading_features():
     with tf.Graph().as_default():
         sess = tf.Session()
         with sess.as_default():
-            ds = FeatureReader().load_pronoun_contrast_train()
+            (ds, _) = FeatureReader().load_pronoun_contrast_eval()
 
             it = ds.make_one_shot_iterator()
 

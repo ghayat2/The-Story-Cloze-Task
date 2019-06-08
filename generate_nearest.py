@@ -8,7 +8,7 @@ Created on Tue May 14 16:33:31 2019
 import numpy as np
 import functools
 import tensorflow as tf
-import data_utils as d
+from data_pipeline import data_utils as d
 
 CONTEXT_LENGTH = 4
 

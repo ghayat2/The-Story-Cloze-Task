@@ -1,26 +1,22 @@
 # Data utilities
 from gensim import models
-import gensim
-import gensim.downloader as api
 import tensorflow as tf
 import numpy as np
-from gensim.scripts.glove2word2vec import glove2word2vec
 
-
-CONTEXT_LENGTH = 4
 FLAGS = tf.flags.FLAGS
+CONTEXT_LENGTH = 4
 
 
-def makeSymbolStory(array, vocabLookup):
-    return [makeSymbols(s, vocabLookup) for s in array.tolist()]
+def make_symbol_story(array, vocabLookup):
+    return [make_symbols(s, vocabLookup) for s in array.tolist()]
 
 
-def makeSymbols(array, vocabLookup):
+def make_symbols(array, vocabLookup):
     """
     Convert array of integers into a sentence based on the dic argument
     """
     conv = list(vocabLookup[x] for x in array)
-    filtered = filter(lambda x: x != '<pad>', conv) # For readability
+    filtered = filter(lambda x: x != '<pad>', conv)  # For readability
     return list(filtered)
 
 
@@ -33,29 +29,21 @@ def split_sentences(sentences):
     return sentences[0:CONTEXT_LENGTH, :], sentences[CONTEXT_LENGTH:, :]
 
 
-def split_skip_thoughts_sentences(sentences):
-    """
-    Same as split_sentences but for skip_thoughts tf_records.
-    :param sentences:
-    """
-    return list(sentences[f"sentence{sentence_nb}"] for sentence_nb in range(1, 5)), [sentences["sentence5"]]
-
-
 def load_embedding(session, vocab, emb, path, dim_embedding, vocab_size):
-    '''
+    """
           session        Tensorflow session object
           vocab          A dictionary mapping token strings to vocabulary IDs
           emb            Embedding tensor of shape vocabulary_size x dim_embedding
           path           Path to embedding file
           dim_embedding  Dimensionality of the external embedding.
-        '''
+        """
 
     print("Loading external embeddings from %s" % path)
 
     model = models.KeyedVectors.load_word2vec_format(path, binary=False)
-#    model = api.load("glove-twitter-200")  # download the model and return as object ready for
-#    glove2word2vec(glove_input_file="glove.42B.300d.txt", word2vec_output_file="gensim_glove_vectors.txt")
-#   model = models.KeyedVectors.load_word2vec_format("gensim_glove_vectors.txt", binary=False)
+    #    model = api.load("glove-twitter-200")  # download the model and return as object ready for
+    #    glove2word2vec(glove_input_file="glove.42B.300d.txt", word2vec_output_file="gensim_glove_vectors.txt")
+    #   model = models.KeyedVectors.load_word2vec_format("gensim_glove_vectors.txt", binary=False)
     external_embedding = np.zeros(shape=(vocab_size, dim_embedding))
     matches = 0
 
@@ -76,6 +64,7 @@ def load_embedding(session, vocab, emb, path, dim_embedding, vocab_size):
     assign_op = emb.assign(pretrained_embeddings)
     session.run(assign_op, {pretrained_embeddings: external_embedding})  # here, embeddings are actually set
 
+
 def sentences_to_sparse_tensor(sentences):
     separated_sentences = sentences.split(".")
     dim1 = len(separated_sentences)
@@ -86,20 +75,6 @@ def sentences_to_sparse_tensor(sentences):
         words = separated_sentences[i].split()
         dim2 = max(dim2, len(words))
         for j in range(len(words)):
-            indices.append((i,j))
+            indices.append((i, j))
             values.append(words[j])
     return tf.SparseTensor(values=values, indices=indices, dense_shape=(dim1, dim2))
-
-def randomize_labels(sentences):
-    # The index-4'th sentence is the correct one
-    classes = FLAGS.classes
-    labels = tf.one_hot(0, depth = classes, dtype=tf.int32)
-    indexes = tf.range(classes, dtype = tf.int32)
-    shuffled = tf.random.shuffle(indexes)
-    print("Randomized, sentences", sentences)
-    return tf.gather(sentences, shuffled),\
-           tf.cast(tf.argmax(tf.gather(labels, shuffled)), dtype=tf.int32)
-
-
-def tensorize_dict(sentences):
-    return tf.stack(list(sentences.values()))
