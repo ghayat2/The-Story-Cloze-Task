@@ -289,7 +289,7 @@ with tf.Graph().as_default():
             tf.set_random_seed(FLAGS.random_seed)
 
         # Build execution graph
-        network = BiDirectional_LSTM(sess, vocab, next_batch_x, FLAGS.attention, FLAGS.attention_size)
+        network = BiDirectional_LSTM(sess, init, next_batch_x, FLAGS.attention, FLAGS.attention_size)
 
         # train_logits: [batch_size]
         # eval_predictions: [batch_size] (index of prediction
@@ -423,10 +423,8 @@ with tf.Graph().as_default():
                 network.dropout_rate: 0.0
             }
             fetches = [global_step, dev_summary_op, loss, accuracy, next_batch_endings_y, eval_predictions, next_batch_x]
-            step, summaries, loss, accuracy, by, eval, context = sess.run(fetches, feed_dict)
+            step, summaries, loss, accuracy, by, eval, story = sess.run(fetches, feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            if not FLAGS.use_skip_thoughts:
-                print("--------next_batch_x -----------", d.make_symbol_story(context[0], vocabLookup))
             print(f"labels {by}")
             print(f"predictions {eval}")
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
