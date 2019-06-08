@@ -2,7 +2,6 @@ import datetime
 from functools import reduce
 
 import pandas as pd
-import tensorflow_transform as tft
 import tensorflow as tf
 from data_pipeline.data_utils import sentences_to_sparse_tensor as to_sparse
 import numpy as np
