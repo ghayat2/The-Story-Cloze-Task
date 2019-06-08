@@ -42,8 +42,10 @@ def create_story(*story_tensors,
             story.set_labels((1, 0))
             story = augment_data(story, random_picker, back_picker, ratio_random, ratio_back)
             if not use_skip_thoughts:
-                data.append(encode(list(filter(lambda x: x not in '!"\'#$%&()*+,-./:;<=>?@[\\]^_`{|}~\t\n',
-                                               story.ending2.strip().split(" "))), vocab))
+                preprocessed_ending = list(filter(lambda x: x not in '!"\'#$%&()*+,-./:;<=>?@[\\]^_`{|}~\t\n',
+                                               story.ending2.strip().split(" ")))
+                cropped_ending = preprocessed_ending[:30]
+                data.append(to_ids(cropped_ending, vocab))
 
         if len(data) == 7:
             # Story from the evaluation set
@@ -54,9 +56,9 @@ def create_story(*story_tensors,
         if use_skip_thoughts:
             story = compute_sentence_embeddings(story)
         else:
-            story.context = data[:CONTEXT_LENGTH]
-            story.ending1 = data[CONTEXT_LENGTH]
-            story.ending2 = data[CONTEXT_LENGTH + 1]
+            story.context = tf.constant(value=data[:CONTEXT_LENGTH], dtype=tf.int32)
+            story.ending1 = tf.constant(value=data[CONTEXT_LENGTH], dtype=tf.int32)
+            story.ending2 = tf.constant(value=data[CONTEXT_LENGTH + 1], dtype=tf.int32)
 
         return story.context, story.ending1, story.ending2, story.features_ending_1, story.features_ending_2, story.labels
 
@@ -67,8 +69,11 @@ def create_story(*story_tensors,
     return tf.py_function(create_story_python, inp=story_tensors, Tout=output_types)
 
 
-def encode(sentence, vocab):
-    return np.array(list(map(lambda word: helper(word, vocab), sentence)))
+def to_ids(sentence, vocab):
+    ids = np.array(list(map(lambda word: helper(word, vocab), sentence)))
+    if ids.shape[0] < 30:
+        return np.pad(ids, (0, 30-ids.shape[0]), mode="constant", constant_values=0)
+    return ids
 
 
 def helper(word, vocab):
