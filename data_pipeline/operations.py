@@ -9,7 +9,7 @@ import numpy as np
 CONTEXT_LENGTH = 4
 
 FLAGS = tf.flags.FLAGS
-encoder = SkipThoughtsEmbedder()
+#encoder = SkipThoughtsEmbedder()
 
 
 def create_story(*story_tensors,

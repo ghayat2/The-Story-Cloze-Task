@@ -46,13 +46,14 @@ tf.flags.DEFINE_integer("sentence_embedding_length", 4800, "Length of the senten
 
 tf.flags.DEFINE_integer("num_neg_random", 3, "Number of negative random endings")
 tf.flags.DEFINE_integer("num_neg_back", 2, "Number of negative back endings")
-tf.flags.DEFINE_integer("ratio_neg_random", 5, "Ratio of negative random endings")
-tf.flags.DEFINE_integer("ratio_neg_back", 1, "Ratio of negative back endings")
+tf.flags.DEFINE_integer("ratio_neg_random", 4, "Ratio of negative random endings")
+tf.flags.DEFINE_integer("ratio_neg_back", 2, "Ratio of negative back endings")
 
 tf.flags.DEFINE_float("dropout_rate", 0.7, "Dropout rate")
 
 tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
 tf.flags.DEFINE_string("path_embeddings", "data/wordembeddings-dim100.word2vec", "Path to the word2vec embeddings")
+tf.flags.DEFINE_string("embeddings", "w2v", "embedding types. Options are: w2v, w2v_google, glove")
 tf.flags.DEFINE_bool("use_skip_thoughts", True, "Whether we use skip thoughts for sentences embedding")
 tf.flags.DEFINE_bool("use_pronoun_contrast", True, "Whether the pronoun contrast feature vector should be added to the"
                                                     " networks' input.")

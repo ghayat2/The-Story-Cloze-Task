@@ -1,5 +1,7 @@
 # Data utilities
 from gensim import models
+from gensim.scripts.glove2word2vec import glove2word2vec
+
 import tensorflow as tf
 import numpy as np
 
@@ -40,10 +42,14 @@ def load_embedding(session, vocab, emb, path, dim_embedding, vocab_size):
 
     print("Loading external embeddings from %s" % path)
 
-    model = models.KeyedVectors.load_word2vec_format(path, binary=False)
-    #    model = api.load("glove-twitter-200")  # download the model and return as object ready for
-    #    glove2word2vec(glove_input_file="glove.42B.300d.txt", word2vec_output_file="gensim_glove_vectors.txt")
-    #   model = models.KeyedVectors.load_word2vec_format("gensim_glove_vectors.txt", binary=False)
+    if FLAGS.embeddings == "w2v":
+        model = models.KeyedVectors.load_word2vec_format(path, binary=False)
+    elif FLAGS.embeddings == "w2v_google":
+        model = models.KeyedVectors.load_word2vec_format('./data/GoogleNews-vectors-negative300.bin', binary=True)  
+    elif FLAGS.embeddings == "glove":
+        glove2word2vec(glove_input_file="data/glove.42B.300d.txt", word2vec_output_file="data/gensim_glove_vectors.txt")
+        model = models.KeyedVectors.load_word2vec_format("data/gensim_glove_vectors.txt", binary=False)
+
     external_embedding = np.zeros(shape=(vocab_size, dim_embedding))
     matches = 0
 
