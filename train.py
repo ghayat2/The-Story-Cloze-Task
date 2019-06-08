@@ -44,7 +44,6 @@ tf.flags.DEFINE_integer("num_eval_sentences", 2, "Number of eval sentences")
 
 tf.flags.DEFINE_integer("sentence_embedding_length", 4800, "Length of the sentence embeddings")
 
-tf.flags.DEFINE_integer("num_features", 22, "Number of features")
 tf.flags.DEFINE_integer("num_neg_random", 3, "Number of negative random endings")
 tf.flags.DEFINE_integer("num_neg_back", 2, "Number of negative back endings")
 tf.flags.DEFINE_integer("ratio_neg_random", 5, "Ratio of negative random endings")
@@ -259,9 +258,11 @@ with tf.Graph().as_default():
             next_batch_context_shape = [FLAGS.batch_size, FLAGS.num_context_sentences, sentence_length]
     next_batch_context = tf.reshape(next_batch_context, next_batch_context_shape)
     next_batch_context.set_shape(next_batch_context_shape)
-    features_size = FLAGS.num_features
-    next_batch_features_1 = tf.reshape(next_batch_features_1, [FLAGS.batch_size, 1, features_size])
-    next_batch_features_2 = tf.reshape(next_batch_features_2, [FLAGS.batch_size, 1, features_size])
+    features_size = int(FLAGS.use_pronoun_contrast) + int(FLAGS.use_n_grams_overlap) + \
+                    (20 if FLAGS.use_sentiment_analysis else 0)
+    if features_size > 0:
+        next_batch_features_1 = tf.reshape(next_batch_features_1, [FLAGS.batch_size, 1, features_size])
+        next_batch_features_2 = tf.reshape(next_batch_features_2, [FLAGS.batch_size, 1, features_size])
     next_batch_labels.set_shape([FLAGS.batch_size, 2])
     next_batch_endings_y = tf.argmax(next_batch_labels, axis=1, output_type=tf.int32)
 
@@ -289,7 +290,7 @@ with tf.Graph().as_default():
             tf.set_random_seed(FLAGS.random_seed)
 
         # Build execution graph
-        network = BiDirectional_LSTM(sess, init, next_batch_x, FLAGS.attention, FLAGS.attention_size)
+        network = BiDirectional_LSTM(sess, init, next_batch_x, features_size, FLAGS.attention, FLAGS.attention_size)
 
         # train_logits: [batch_size]
         # eval_predictions: [batch_size] (index of prediction

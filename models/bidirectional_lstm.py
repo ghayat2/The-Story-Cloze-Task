@@ -8,14 +8,14 @@ FLAGS = tf.flags.FLAGS
 class BiDirectional_LSTM:
     ACTIVATION_NODES = 1
 
-    def __init__(self, session, vocab, context, attention: str = None, attention_size: int = 1):
+    def __init__(self, session, vocab, context, feature_size, attention: str = None, attention_size: int = 1, ):
         print("Super awesome model")
         self.input = context
         self.session = session
         self.vocab = vocab
         self.attention = attention
         self.attention_size = attention_size
-
+        self.feature_size = feature_size
         self.dropout_rate = tf.placeholder_with_default(0.0, shape=())
 
     def _word_embeddings(self):
@@ -138,9 +138,9 @@ class BiDirectional_LSTM:
 
                 print("RES2", res)
 
-            with tf.name_scope("features_dense"):
-                res = self._integrate_features(res, self.input["features1"])
-                print("feature1", self.input["features1"])
+            if self.feature_size > 0:
+                with tf.name_scope("features_dense"):
+                    res = self._integrate_features(res, self.input["features1"])
 
             with tf.name_scope("fc"):
                 ending_outputs1 = self._output_fc(res)
@@ -152,9 +152,9 @@ class BiDirectional_LSTM:
                 res = self._sentence_rnn(story2)
                 res = self._dropout_layer(res)
 
-            with tf.name_scope("features_dense"):
-                res = self._integrate_features(res, self.input["features2"])
-                print("feature2", self.input["features2"])
+            if self.feature_size > 0:
+                with tf.name_scope("features_dense"):
+                    res = self._integrate_features(res, self.input["features2"])
 
             with tf.name_scope("fc"):
                 ending_outputs2 = self._output_fc(res)

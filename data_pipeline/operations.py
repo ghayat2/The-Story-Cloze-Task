@@ -123,8 +123,11 @@ def get_features(story):
         features2.append(context_sentiments)
         features2.append(ending2_sentiments)
 
-    story.features_ending_1 = tf.squeeze(tf.cast(tf.concat(features1, axis=0), dtype=tf.float32))
-    story.features_ending_2 = tf.squeeze(tf.cast(tf.concat(features2, axis=0), dtype=tf.float32))
+    story.features_ending_1 = tf.squeeze(tf.cast(tf.concat(features1, axis=0), dtype=tf.float32)) if \
+        len(features1) > 0 else tf.constant(0, dtype=tf.float32)
+
+    story.features_ending_2 = tf.squeeze(tf.cast(tf.concat(features2, axis=0), dtype=tf.float32)) if \
+        len(features2) > 0 else tf.constant(0, dtype=tf.float32)
     return story
 
 
