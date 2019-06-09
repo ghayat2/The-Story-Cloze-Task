@@ -1,24 +1,50 @@
-# nlu-project2
+
+
+The goal of this project is to predict the ending of a story. To see the detailed task as well as our approach, please refer to the report. 
+
+## Data
+The following datasets are required:
+- training set: containing 88161 five-sentence short stories that include only the correct ending
+- validation set: containing 1871 stories with positive and negative endings
+- test set: containing stories with two endings
+- 100 dimension word2vec embedding
+- Google 300 dimension word2vec embeddings
+- 300 dimension Glove embeddings
+- Pretrained skipthought embeddings.
+
+All files should be put in a `data/` file, they are available for download [here](https://polybox.ethz.ch/index.php/apps/files/?dir=/Shared/data&fileid=1404350091)
+
 ## Setup
-- Download the cloze datasets (eval and train) and place them in a folder
-named "data". Also, create a folder "data/processed/".
-- Run process_train.py
-- Run 
+- Create a folder "data/processed/"
+- Run the command
+```bash
+python3 process_train.py
+```
+- Run the command
 ```bash
 python3 process_eval.py eval_stories.csv data/tokenizer.pickle
 ```
-- If you're using skip-thoughts, you need to download to you `data/processed/`
-folder these two files:
+
+These command should create a vocabulary and encode the training/evaluation set for the given task.
+
+To train the model, run the command:
 ```bash
-wget --user=nethz_username --ask-password https://polybox.ethz.ch/remote.php/webdav/nlu-project2/eval_stories_skip_thoughts.tfrecords
+python3 train.py
 ```
-```bash
-wget --user=nethz_username --ask-password https://polybox.ethz.ch/remote.php/webdav/nlu-project2/train_stories_skip_thoughts.tfrecords
-```
-- If you're using word2vec with 100 dimensional word embeddings:
-```bash
-wget --user=nethz_username --ask-password https://polybox.ethz.ch/index.php/s/mFkjmC9EmPKDzg1/download
-```
+
+The relevant flags are the following:
+- use_train_set: Whether to use train set or eval set for training (default True)
+- word_emb: edding_dimension: Word embedding dimension size (default: 100, google and glove should be 300)
+- ratio_neg_random: Ratio of negative random endings (default: 4)
+- ratio_neg_back: Ratio of negative backward endings (default: 2)
+- embeddings: embeddings to use (default: w2v, options: w2v, w2v_google, glove)
+- use_skip_thoughts: Whether we use skip thoughts for sentences embedding (default: true)
+- use_pronoun_contrast: Whether the pronoun contrast feature vector should be added to the networks' input (default true)
+- use_n_grams_overlap: Whether the n grams overlap feature vector should be added to the network's input.(default true)
+- use_sentiment_analysis: Whether to use the sentiment intensity analysis (4 dimensional vectors (default true)
+- attention: Whether to use attention (default: none, options: add ~ Bahdanau, mult ~ Luong)
+- batch_size: (default 16)
+
 
 ## Project Structure
 
@@ -29,28 +55,4 @@ wget --user=nethz_username --ask-password https://polybox.ethz.ch/index.php/s/mF
 
 - models/MODEL -> model
 
-## Links
-- Skip-thought: https://github.com/ryankiros/skip-thoughts
 
-
-## Things we want to test (21-05-2019)
-
-Discriminator
- - Mean vs. sum in word embedding --> Submit job now
-    - Set pad vector to 0 ?
-    
- - Skip-thought sentence embedding --> Arthur
- - Multiple endings: 6
-    - 3/3 backwards/random --> Gabriel & Hidde
- - Dropout --> Ji
- - Introduce features --> Ji & Arthur
-    
-Generator
- - Implement near-generation
- - Implement VAE
- - Implement LM
-    - LM project 1
-    - Pretrained ?
-    
-Misc
- - Data cleaning (numbers, contractions)
