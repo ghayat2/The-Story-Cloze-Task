@@ -15,6 +15,10 @@ The following datasets are required:
 All files should be put in a `data/` file, they are available for download [here](https://polybox.ethz.ch/index.php/apps/files/?dir=/Shared/data&fileid=1404350091)
 
 ## Setup
+- Run the command:
+```bash
+ pip3 install --user -r requirements.txt
+```
 - Create a folder "data/processed/"
 - Run the command
 ```bash
