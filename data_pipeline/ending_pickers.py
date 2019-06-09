@@ -35,7 +35,7 @@ class BackPicker(Picker):
         return tf.gather(context, rand_index).numpy()[0].decode("utf-8")
 
 
-class PlainRandomPicker(Picker):
+class PlainRandomPicker(Picker, N = 1):
 
     def __init__(self, *args, **kwargs):
         super(PlainRandomPicker, self).__init__(*args, **kwargs)
