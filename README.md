@@ -1,5 +1,5 @@
 
-
+# Story Cloze Test - NLU Project 2
 The goal of this project is to predict the ending of a story. To see the detailed task as well as our approach, please refer to the report. 
 
 ## Data
