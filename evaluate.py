@@ -2,6 +2,8 @@ import functools
 import sys
 import tensorflow as tf
 import numpy as np
+from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
+
 from definitions import ROOT_DIR
 import pandas as pd
 from data_pipeline.generate_combined import create_story
@@ -39,7 +41,6 @@ tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on 
 # Model Parameters
 tf.flags.DEFINE_integer("rnn_cell_size", LSTM_SIZE, "LSTM Size (default: 1000)")
 tf.flags.DEFINE_string("rnn_cell", "LSTM", "Type of rnn cell")
-tf.flags.DEFINE_boolean("enable_dropout", False, "Enable the dropout layer")
 tf.flags.DEFINE_boolean("use_skip_thoughts", True, "True if skip thoughts embeddings should be used")
 tf.flags.DEFINE_integer("sentence_len", 30, "Length of sentence")
 tf.flags.DEFINE_integer("vocab_size", 20000, "Size of the vocabulary")
@@ -76,6 +77,7 @@ tf.flags.DEFINE_integer("hidden_layer_size", 100, "Size of hidden layer")
 tf.flags.DEFINE_integer("rnn_num", 2, "Number of RNNs")
 tf.flags.DEFINE_integer("feature_integration_layer_output_size", 100, "Number of outputs from the dense layer after the"
                                                                       " RNN cell that includes the features")
+tf.flags.DEFINE_bool("use_train_set", True, "Whether to use train set, use eval set for training otherwise")
 
 FLAGS = tf.flags.FLAGS
 FLAGS(sys.argv)
@@ -93,7 +95,7 @@ if FLAGS.predict:
     filepath = f"{ROOT_DIR}/data/test-stories.csv"
 else:
     filepath = f"{ROOT_DIR}/data/test_for_report-stories_labels.csv"
-    labels = pd.read_csv(filepath_or_buffer=filepath, sep=',', usecols=["AnswerRightEnding"])
+    labels = np.array(pd.read_csv(filepath_or_buffer=filepath, sep=',', usecols=["AnswerRightEnding"]).values).flatten()
 
 EMBEDDING_SIZE = 4800 if FLAGS.use_skip_thoughts else 100
 FEATURES_SIZE = 22 if FLAGS.used_features else 0
@@ -102,7 +104,7 @@ print("Loading and preprocessing test dataset \n")
 # x_test = np.load(filepath).astype(np.str)
 x_test = pd.read_csv(filepath_or_buffer=filepath, sep=',',
                      usecols=["InputSentence1", "InputSentence2", "InputSentence3", "InputSentence4",
-                              "RandomFifthSentenceQuiz1", "RandomFifthSentenceQuiz2"])
+                              "RandomFifthSentenceQuiz1", "RandomFifthSentenceQuiz2"]).values
 vocab = np.load(FLAGS.data_sentences_vocab_path, allow_pickle=True)  # vocab contains [symbol: id]
 vocabLookup = dict((v, k) for k, v in vocab.item().items())  # flip our vocab dict so we can easy lookup [id: symbol]
 
@@ -114,42 +116,66 @@ with graph.as_default():
     session_conf = tf.ConfigProto(
         allow_soft_placement=FLAGS.allow_soft_placement,
         log_device_placement=FLAGS.log_device_placement)
+
+    # Placeholders for stories and labels
+    if FLAGS.use_skip_thoughts:
+        output_types = [tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.int32]
+    else:
+        output_types = [tf.int32, tf.int32, tf.int32, tf.float32, tf.float32, tf.int32]
+    sentence_length = FLAGS.sentence_embedding_length if FLAGS.use_skip_thoughts else FLAGS.sentence_length
+    shapes = (
+        [FLAGS.batch_size, 1, sentence_length * FLAGS.num_context_sentences] if FLAGS.use_skip_thoughts
+        else [FLAGS.batch_size, FLAGS.num_context_sentences, sentence_length],
+        [FLAGS.batch_size, 1, EMBEDDING_SIZE],
+        [FLAGS.batch_size, 1, EMBEDDING_SIZE],
+        [FLAGS.batch_size, 1, FEATURES_SIZE],
+        [FLAGS.batch_size, 1, FEATURES_SIZE],
+        [FLAGS.batch_size, 1, 1]
+    )
+    next_story = list(tf.placeholder(output_types[i], shape=shapes[i]) for i in range(len(output_types)))
+
+
+    # Generate batches for one epoch
+    def get_batch():
+        for batch_num in range(FLAGS.batch_size):
+            start_index = batch_num * FLAGS.batch_size
+            end_index = min((batch_num + 1) * FLAGS.batch_size, len(x_test))
+
+            if labels is None:
+                # dummy constant if we're predicting since we don't have the labels
+                y = tuple(1 for _ in range(end_index - start_index))
+            else:
+                y = labels[start_index:end_index]
+            x = x_test[start_index:end_index]
+            res = tuple(x[0]) + tuple(y)
+            yield res
+
+
+    # Creates the dataset
+    types = tuple(tf.string for _ in range(6)) + tuple([tf.int32])
+    dataset = tf.data.Dataset.from_generator(get_batch, output_types=types) \
+        .map(functools.partial(create_story, **{
+        "use_skip_thoughts": bool(FLAGS.use_skip_thoughts), "vocabLookup": vocabLookup, "vocab": vocab
+    })) \
+        .batch(FLAGS.batch_size)
+    #
+    # create the iterator
+    iterator = dataset.make_initializable_iterator()  # create the iterator
+    next_batch = iterator.get_next()
+    for i in range(len(shapes)):
+        tf.reshape(next_batch[i], shape=shapes[i])
+        next_batch[i].set_shape(shapes[i])
+    network_input = {
+        "context": next_batch[0],
+        "ending1": next_batch[1],
+        "ending2": next_batch[2],
+        "features1": next_batch[3],
+        "features2": next_batch[4]
+    }
+
     sess = tf.Session(config=session_conf)
 
     with sess.as_default():
-        # Placeholders for stories and labels
-        if FLAGS.use_skip_thoughts:
-            output_types = [tf.float32, tf.float32, tf.float32, tf.float32, tf.float32]
-        else:
-            output_types = [tf.int32, tf.int32, tf.int32, tf.float32, tf.float32]
-        shapes = (
-            [FLAGS.batch_size, 1, EMBEDDING_SIZE], [FLAGS.batch_size, 1, EMBEDDING_SIZE],
-            [FLAGS.batch_size, 1, EMBEDDING_SIZE], [FLAGS.batch_size, 1, FEATURES_SIZE],
-            [FLAGS.batch_size, 1, FEATURES_SIZE]
-        )
-        next_story = list(map(lambda i: tf.placeholder(tf.string, shape=[FLAGS.batch_size, 1]), range(len(output_types))))
-        next_label = tf.placeholder(tf.int32, shape=[FLAGS.batch_size, 1])
-        # Creates the dataset
-        dataset = tf.data.Dataset.from_tensor_slices(next_story)\
-            .map(functools.partial(create_story, **{
-                    "use_skip_thoughts": bool(FLAGS.use_skip_thoughts),
-                    "vocabLookup": vocabLookup,
-                    "vocab": vocab
-            }))\
-            .batch(FLAGS.batch_size)
-        # create the iterator
-        iterator = dataset.make_initializable_iterator()  # create the iterator
-        next_batch = iterator.get_next()
-        for i in range(len(shapes)):
-            tf.reshape(next_batch[i], shape=shapes[i])
-            next_batch[i].set_shape(shapes[i])
-        network_input = {
-            "context": next_batch[0],
-            "ending1": next_batch[1],
-            "ending2": next_batch[2],
-            "features1": next_batch[3],
-            "features2": next_batch[4]
-        }
         # Creating the model
         network = BiDirectional_LSTM(sess, vocab, network_input, FEATURES_SIZE, FLAGS.attention,
                                      FLAGS.attention_size)
@@ -159,46 +185,34 @@ with graph.as_default():
         saver = tf.train.Saver()
         saver.restore(sess, checkpoint_file)
 
-        # Generate batches for one epoch
-        def get_batch():
-            for batch_num in range(FLAGS.batch_size):
-                start_index = batch_num * FLAGS.batch_size
-                end_index = min((batch_num + 1) * FLAGS.batch_size, len(x_test))
-                story = list(map(lambda sentence: tf.Variable(sentence, dtype=tf.string), x_test[start_index:end_index]))
-                # dummy constant if we're predicting since we don't have the labels
-                y = tf.Variable((1, 0) if labels is None else labels[i], dtype=tf.int32)
-                yield story, y
-
-
-        batches = get_batch()
-
         # Collect the predictions here
         predictions = []
         accuracies = []
 
         accuracy = tf.reduce_mean(
             tf.cast(
-                tf.equal(eval_predictions, next_label), dtype=tf.float32
+                tf.equal(eval_predictions, next_batch[5]), dtype=tf.float32
             )
         )
 
-        i = 0
-        for story in batches:
-            label = labels[i]
-            i += 1
-            feed_dict = {
-                # handle: test_handle,
-                network.dropout_rate: 0.0,
-                next_story: story,
-                next_label: label
-            }
-            if FLAGS.predict:
-                fetches = [eval_predictions]
-            else:
-                fetches = [accuracy]
-            accuracy, preds = sess.run(fetches, feed_dict)
-            predictions.append(preds)
-            predictions.append(accuracy)
+        handle = tf.placeholder(tf.string, shape=[])
+        test_handle = sess.run(iterator.string_handle())
+
+        while True:
+            try:
+                sess.run(iterator.initializer, feed_dict={
+                    handle: test_handle
+                })
+                if FLAGS.predict:
+                    fetches = [eval_predictions]
+                else:
+                    fetches = [accuracy]
+                accuracy, preds = sess.run(fetches)
+                predictions.append(preds)
+                predictions.append(accuracy)
+            except tf.errors.OutOfRangeError:
+                break
+
 
 if FLAGS.predict:
     with open(f"group{FLAGS.group_number}_accuracy_{CHECKPOINT_FILE}", 'w') as f:
