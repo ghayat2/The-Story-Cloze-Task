@@ -1,3 +1,4 @@
+import datetime
 import functools
 import sys
 import tensorflow as tf
@@ -49,7 +50,7 @@ tf.flags.DEFINE_string("attention", None,
 tf.flags.DEFINE_integer("attention_size", 1000, "Attention size.")
 tf.flags.DEFINE_bool("used_features", True, "If features were used during training.")
 tf.flags.DEFINE_bool("use_pronoun_contrast", True, "Whether the pronoun contrast feature vector should be added to the"
-                                                    " networks' input.")
+                                                   " networks' input.")
 tf.flags.DEFINE_bool("use_n_grams_overlap", True, "Whether the n grams overlap feature vector should be added to the "
                                                   "network's input.")
 tf.flags.DEFINE_bool("use_sentiment_analysis", True, "Whether to use the sentiment intensity analysis (4 dimensional "
@@ -130,14 +131,14 @@ with graph.as_default():
         [FLAGS.batch_size, 1, EMBEDDING_SIZE],
         [FLAGS.batch_size, 1, FEATURES_SIZE],
         [FLAGS.batch_size, 1, FEATURES_SIZE],
-        [FLAGS.batch_size, 1, 1]
+        [FLAGS.batch_size, 1, 2]
     )
     next_story = list(tf.placeholder(output_types[i], shape=shapes[i]) for i in range(len(output_types)))
 
-
     # Generate batches for one epoch
     def get_batch():
-        for batch_num in range(FLAGS.batch_size):
+        num_batches_per_epoch = int((len(x_test) - 1) / FLAGS.batch_size) + 1
+        for batch_num in range(num_batches_per_epoch):
             start_index = batch_num * FLAGS.batch_size
             end_index = min((batch_num + 1) * FLAGS.batch_size, len(x_test))
 
@@ -146,24 +147,23 @@ with graph.as_default():
                 y = tuple(1 for _ in range(end_index - start_index))
             else:
                 y = labels[start_index:end_index]
-            x = x_test[start_index:end_index]
-            res = tuple(x[0]) + tuple(y)
-            yield res
+            yield tuple(x_test[start_index:end_index][0]) + tuple(y)
 
 
     # Creates the dataset
     types = tuple(tf.string for _ in range(6)) + tuple([tf.int32])
     dataset = tf.data.Dataset.from_generator(get_batch, output_types=types) \
         .map(functools.partial(create_story, **{
-        "use_skip_thoughts": bool(FLAGS.use_skip_thoughts), "vocabLookup": vocabLookup, "vocab": vocab
-    })) \
-        .batch(FLAGS.batch_size)
+            "use_skip_thoughts": bool(FLAGS.use_skip_thoughts),
+            "vocabLookup": vocabLookup,
+            "vocab": vocab
+        })).batch(FLAGS.batch_size)
     #
     # create the iterator
     iterator = dataset.make_initializable_iterator()  # create the iterator
-    next_batch = iterator.get_next()
+    next_batch = list(iterator.get_next())
     for i in range(len(shapes)):
-        tf.reshape(next_batch[i], shape=shapes[i])
+        next_batch[i] = tf.reshape(next_batch[i], shape=shapes[i])
         next_batch[i].set_shape(shapes[i])
     network_input = {
         "context": next_batch[0],
@@ -172,6 +172,8 @@ with graph.as_default():
         "features1": next_batch[3],
         "features2": next_batch[4]
     }
+
+    next_batch_endings_y = tf.argmax(next_batch[5], axis=1, output_type=tf.int32)
 
     sess = tf.Session(config=session_conf)
 
@@ -186,39 +188,44 @@ with graph.as_default():
         saver.restore(sess, checkpoint_file)
 
         # Collect the predictions here
-        predictions = []
-        accuracies = []
+        results = []
 
         accuracy = tf.reduce_mean(
             tf.cast(
-                tf.equal(eval_predictions, next_batch[5]), dtype=tf.float32
+                tf.equal(eval_predictions, next_batch_endings_y), dtype=tf.float32
             )
         )
+
+        sess.run(iterator.initializer)
 
         handle = tf.placeholder(tf.string, shape=[])
         test_handle = sess.run(iterator.string_handle())
 
+        it = 0
         while True:
             try:
-                sess.run(iterator.initializer, feed_dict={
-                    handle: test_handle
-                })
+                a = datetime.datetime.now()
                 if FLAGS.predict:
+                    keyword = "prediction:"
                     fetches = [eval_predictions]
                 else:
+                    keyword = "accuracy"
                     fetches = [accuracy]
-                accuracy, preds = sess.run(fetches)
-                predictions.append(preds)
-                predictions.append(accuracy)
+                res = sess.run(fetches, feed_dict={
+                    handle: test_handle
+                })
+                res = res[0][0] if FLAGS.predict else res[0]
+                results.append(res)
+                it += 1
+                print(f"Iteration {it} - {datetime.datetime.now() - a} - {keyword}: {res}")
             except tf.errors.OutOfRangeError:
                 break
 
-
 if FLAGS.predict:
     with open(f"group{FLAGS.group_number}_accuracy_{CHECKPOINT_FILE}", 'w') as f:
-        for i in range(len(predictions)):
-            f.write(str(predictions[i]) + "\n")
+        for i in range(len(results)):
+            f.write(str(results[i]) + "\n")
 else:
     # Only printing out the average accuracy
-    avg = np.average(accuracies)
+    avg = np.average(results)
     print(f"Avg accuracy: {avg}")
