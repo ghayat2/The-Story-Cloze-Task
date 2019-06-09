@@ -1,7 +1,9 @@
+import os
 from functools import reduce
 
 import tensorflow as tf
 from data_pipeline.story import Story
+from definitions import ROOT_DIR
 from embedding.sentence_embedder import SkipThoughtsEmbedder
 from feature_extraction.FeatureExtractor import FeatureExtractor
 import numpy as np
@@ -9,7 +11,9 @@ import numpy as np
 CONTEXT_LENGTH = 4
 
 FLAGS = tf.flags.FLAGS
-#encoder = SkipThoughtsEmbedder()
+
+if os.path.isfile(f"{ROOT_DIR}/data/embeddings/skip_thoughts/utable.npy"):
+    encoder = SkipThoughtsEmbedder()
 
 
 def create_story(*story_tensors,
