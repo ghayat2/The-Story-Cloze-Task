@@ -34,9 +34,17 @@
 %\begin{abstract}
 %\end{abstract}
 
-Feel free to add more sections but those listed here are strongly recommended.
+\setcitestyle{square}
+
 \section{Introduction}
-You can keep this short. Ideally you introduce the task already in a way that highlights the difficulties  your method will tackle.
+%You can keep this short. Ideally you introduce the task already in a way that highlights the difficulties  your method will tackle.
+
+Recent advances in machine learning have vastly improved the performance of models for Natural Language Understanding. Many areas such as sentiment analysis, language modelling or machine translation have already achieved impressive results. Unfortunately, the aspect of machine comprehension and logical induction is one where significant improvements are yet to be made. This task aims to tackle the Story Cloze Test (SCT), where one tries to choose the right ending of a short story. Unlike most of common machine learning task, the training and validation set have a fundamental difference. The training data is composed of 80k five-sentence stories released in 2016 by \cite{Mostafazaden}, whereas the validation set is a one of four-sentence stories (context) given with two possible endings. \cite{Mostafazaden} demonstrates that relying exclusively on shallow semantic features is not enough in order to achieve a high accuracy, with the best score of 58.6\% obtained by a Deep Structured Semantic Model (DSSM).
+
+There are several complications when dealing with narrative comprehension in the SCT problem, the biggest challenge being the lack of negative endings in the training set. Training solely on the validation set has demonstrated to achieve higher scores than training on the training set, despite the important difference in the volume of data \cite{Roemmele}. The issue has previously been addressed by generation of negative endings (i.e GAN \cite{GAN}) or  sampling negative endings from the training set following various heuristics \cite{Roemmele}. 
+
+We decided to follow a discriminative approach similar although not identical to the one described in Roemmele et al. \cite{Roemmele}. We use different kind of word embeddings and sentence embedding as well as highlight the performance difference when training on each training sets (training and validation set).
+
 \section{Methodology}
 Your idea. You can rename this section if you like. Early on in this section -- but not necessarily first -- make clear what category your method falls into: Is it generative? Discriminative? Is there a particular additional data source you want to use?
 \section{Model}
@@ -48,4 +56,15 @@ What is your objective? How do you optimize it?
 This {\bf must} at least include the accuracy of your method on the validation set.
 \section{Conclusion}
 You can keep this short, too.
+
+\section{References}
+\begin{thebibliography}{9}
+\bibitem{Mostafazaden} N. Mostafazaden, N. Chambers, X. He, D. Parikh, D. Batra, L. Vanderwende, P. Kohli, J. Allen (2016): A Corpus and Cloze Evaluation for Deeper Understanding of Commonsense Stories.
+
+\bibitem{Roemmele} Melissa Roemmele, Sosuke Kobayashi, Naoya Inoue, Andrew M. Gordon: An RNN-based Binary Classifier for the Story Cloze Test.
+
+\bibitem{GAN} Bingning Wang, Kang Liu, Jun Zhao: Conditional Generative Adversarial Networks for Commonsense Machine Comprehension
+
+
+\end{thebibliography}
 \end{document}

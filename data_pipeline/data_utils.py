@@ -49,6 +49,9 @@ def load_embedding(session, vocab, emb, path, dim_embedding, vocab_size):
     elif FLAGS.embeddings == "glove":
         glove2word2vec(glove_input_file="data/glove.42B.300d.txt", word2vec_output_file="data/gensim_glove_vectors.txt")
         model = models.KeyedVectors.load_word2vec_format("data/gensim_glove_vectors.txt", binary=False)
+    else:
+        print("Unknown embeddings...")
+        exit(1)
 
     external_embedding = np.zeros(shape=(vocab_size, dim_embedding))
     matches = 0
