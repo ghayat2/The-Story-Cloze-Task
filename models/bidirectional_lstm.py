@@ -110,7 +110,10 @@ class BiDirectional_LSTM:
         return tf.nn.dropout(state, rate=self.dropout_rate)
 
     def _integrate_features(self, state: tf.Tensor, features) -> tf.Tensor:
-        state = tf.concat(values=(state, tf.cast(tf.squeeze(features), tf.float32)), axis=1)
+        axis = 1 if FLAGS.batch_size > 1 else 0
+        state = tf.concat(values=(tf.squeeze(state), tf.cast(tf.squeeze(features), tf.float32)), axis=axis)
+        if FLAGS.batch_size == 1:
+            state = tf.expand_dims(state, axis=0)
         return tf.layers.dense(state, FLAGS.feature_integration_layer_output_size,
                                activation=tf.nn.relu, name="features_dense")
 
