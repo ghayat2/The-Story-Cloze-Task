@@ -37,7 +37,7 @@ python3 train.py
 
 The relevant flags are the following:
 - use_train_set: Whether to use train set or eval set for training (default True)
-- word_emb: edding_dimension: Word embedding dimension size (default: 100, google and glove should be 300)
+- word_embedding_dimension: Word embedding dimension size (default: 100, google and glove should be 300)
 - ratio_neg_random: Ratio of negative random endings (default: 4)
 - ratio_neg_back: Ratio of negative backward endings (default: 2)
 - embeddings: embeddings to use (default: w2v, options: w2v, w2v_google, glove)
@@ -54,6 +54,9 @@ you can test our runs using `evaluate.py`. Here is a summary of the arguments
 and flags that you will need to pay attention to using this script:
 - The first and only argument is the name of a directory in `/runs`
 which contains the checkpoints of a trained model.
+```bash
+python3 evaluate.py checkpoint_file
+```
 - Tensorflow glags:
     - predict: Boolean indicating if you want to make predictions on the
 dataset "test_for_report-stories_labels.csv" or rather use "test-stories.csv"
@@ -70,3 +73,9 @@ and calculate the average accuracy of the model.
     - attention: Either "add", "mult" or `None` to indicate if an attention
     method was used and if so, which one between Bahdanau (add) or 
     Luong (mult).
+    - embeddings: embeddings to use (default: w2v, options: w2v, w2v_google, glove)
+    - word_embedding_dimension: Word embedding dimension size (default: 100, google and glove should be 300)
+    - use_skip_thoughts: Whether we use skip thoughts for sentences embedding (default: true)
+    - use_validation_set: calculate the average accuracy on the validation set (default:false)
+    
+
