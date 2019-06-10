@@ -24,7 +24,7 @@ else:
     tokenizer_json = sys.argv[2]
 
 if tokenizer_json == None:
-    print("You probably  did not intend to generate a new vocabulary for a file other than train_stories file. Exiting")
+    print("You probably  did not intend to generate a new vocabulary for a file other than test_stories file. Exiting")
     print("Did you mean to specify: processed/sentences.train_vocab.npy ?")
     exit(1)
 

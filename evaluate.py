@@ -32,12 +32,14 @@ tf.flags.DEFINE_string("data_sentences_vocab_path", f"{ROOT_DIR}/data/processed/
 tf.flags.DEFINE_bool("predict", True, "If predicting labels for the test-stories.csv file or assessing the performance"
                                       "instead, using test_for_report-stories_labels.csv")
 tf.flags.DEFINE_integer("batch_size", 1, "Batch Size (default: 64)")
+tf.flags.DEFINE_bool("use_validation_set", False, "Calculating average accuracy on validation set")
 tf.flags.DEFINE_string("checkpoint_dir", f"./runs/{CHECKPOINT_FILE}/checkpoints/",
                        "Checkpoint directory from training run")
 
 # Tensorflow Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
+
 
 # Model Parameters
 tf.flags.DEFINE_integer("rnn_cell_size", LSTM_SIZE, "LSTM Size (default: 1000)")
@@ -101,10 +103,15 @@ else:
     if FLAGS.use_skip_thoughts:
         filepath = f"{ROOT_DIR}/data/test_for_report-stories_labels.csv"
         labels = np.array(pd.read_csv(filepath_or_buffer=filepath, sep=',', usecols=["AnswerRightEnding"]).values).flatten()
-    else:
+    elif not FLAGS.use_validation_set:
         filepath = f"{ROOT_DIR}/data/processed/test_for_report-stories_labels.csv.npy"
         labels = np.load(f"{ROOT_DIR}/data/processed/test_for_report-stories_labels.csv_labels.npy").astype(dtype=np.int32)
         labels -= 1
+    else:
+        filepath = f"{ROOT_DIR}/data/processed/eval_stories.csv.npy"
+        labels = np.load(f"{ROOT_DIR}/data/processed/eval_stories.csv_labels.npy").astype(dtype=np.int32)
+        labels -= 1
+
 
 EMBEDDING_SIZE = 4800 if FLAGS.use_skip_thoughts else FLAGS.word_embedding_dimension
 FEATURES_SIZE = 22 if FLAGS.used_features else 0
