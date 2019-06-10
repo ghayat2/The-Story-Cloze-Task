@@ -20,12 +20,9 @@ All files should be put in a `data/` file, they are available for download [here
  pip3 install --user -r requirements.txt
 ```
 - Create a folder "data/processed/"
-- Run the command
+- Run the following commands
 ```bash
 python3 process_train.py
-```
-- Run the commands
-```bash
 python3 process_eval.py eval_stories.csv data/tokenizer.pickle
 python3 process_test.py test-stories.csv data/tokenizer.pickle
 python3 process_test.py test_for_report-stories_labels.csv data/tokenizer.pickle
