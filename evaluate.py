@@ -199,7 +199,7 @@ with graph.as_default():
         "features2": next_batch[4]
     }
 
-    next_batch_endings_y = tf.argmax(next_batch[5], axis=1, output_type=tf.int32)
+    next_batch_endings_y = tf.argmax(next_batch[5], axis=2, output_type=tf.int32)
 
     sess = tf.Session(config=session_conf)
 
