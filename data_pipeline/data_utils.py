@@ -40,13 +40,15 @@ def load_embedding(session, vocab, emb, path, dim_embedding, vocab_size):
           dim_embedding  Dimensionality of the external embedding.
         """
 
-    print("Loading external embeddings from %s" % path)
 
     if FLAGS.embeddings == "w2v":
+        print("Loading w2v")
         model = models.KeyedVectors.load_word2vec_format(path, binary=False)
     elif FLAGS.embeddings == "w2v_google":
+        print("Loading w2v_google")
         model = models.KeyedVectors.load_word2vec_format('./data/GoogleNews-vectors-negative300.bin', binary=True)  
     elif FLAGS.embeddings == "glove":
+        print("Loading glove")
         glove2word2vec(glove_input_file="data/glove.42B.300d.txt", word2vec_output_file="data/gensim_glove_vectors.txt")
         model = models.KeyedVectors.load_word2vec_format("data/gensim_glove_vectors.txt", binary=False)
     else:
