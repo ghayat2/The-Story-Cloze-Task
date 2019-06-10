@@ -47,3 +47,26 @@ The relevant flags are the following:
 - use_sentiment_analysis: Whether to use the sentiment intensity analysis (4 dimensional vectors (default true)
 - attention: Whether to use attention (default: none, options: add ~ Bahdanau, mult ~ Luong)
 - batch_size: (default 16)
+
+## Assessing Performance
+After having pre-processed the testing files using the commands above,
+you can test our runs using `evaluate.py`. Here is a summary of the arguments
+and flags that you will need to pay attention to using this script:
+- The first and only argument is the name of a directory in `/runs`
+which contains the checkpoints of a trained model.
+- Tensorflow glags:
+    - predict: Boolean indicating if you want to make predictions on the
+dataset "test_for_report-stories_labels.csv" or rather use "test-stories.csv"
+and calculate the average accuracy of the model.
+    - used_features: Boolean indicating if any feature extraction method
+    was used during training. If any of the three flags below is true,
+    then this flag must be set to true as well. 
+    - use_pronoun_contrast: If the pronoun contrast feature extraction method
+    was used during training.
+    - use_n_grams_overlap: If the ngrams overlap feature extraction method
+    was used during training. 
+    - use_sentiment_analysis=If the sentiment analysis feature extraction method
+    (Vader) was used during training. 
+    - attention: Either "add", "mult" or `None` to indicate if an attention
+    method was used and if so, which one between Bahdanau (add) or 
+    Luong (mult).
