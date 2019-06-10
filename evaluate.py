@@ -93,21 +93,32 @@ print("")
 # Load data
 if FLAGS.predict:
     labels = None
-    filepath = f"{ROOT_DIR}/data/test-stories.csv"
+    if FLAGS.use_skip_thoughts:
+        filepath = f"{ROOT_DIR}/data/test-stories.csv"
+    else:
+        filepath = f"{ROOT_DIR}/data/processed/test-stories.csv.npy"
 else:
-    filepath = f"{ROOT_DIR}/data/test_for_report-stories_labels.csv"
-    labels = np.array(pd.read_csv(filepath_or_buffer=filepath, sep=',', usecols=["AnswerRightEnding"]).values).flatten()
+    if FLAGS.use_skip_thoughts:
+        filepath = f"{ROOT_DIR}/data/test_for_report-stories_labels.csv"
+        labels = np.array(pd.read_csv(filepath_or_buffer=filepath, sep=',', usecols=["AnswerRightEnding"]).values).flatten()
+    else:
+        filepath = f"{ROOT_DIR}/data/processed/test_for_report-stories_labels.csv.npy"
+        labels = np.load(f"{ROOT_DIR}/data/processed/test_for_report-stories_labels.csv_labels.npy").astype(dtype=np.int32)
+        labels -= 1
 
 EMBEDDING_SIZE = 4800 if FLAGS.use_skip_thoughts else FLAGS.word_embedding_dimension
 FEATURES_SIZE = 22 if FLAGS.used_features else 0
 
-print("Loading and preprocessing test dataset \n")
-# x_test = np.load(filepath).astype(np.str)
-x_test = pd.read_csv(filepath_or_buffer=filepath, sep=',',
-                     usecols=["InputSentence1", "InputSentence2", "InputSentence3", "InputSentence4",
-                              "RandomFifthSentenceQuiz1", "RandomFifthSentenceQuiz2"]).values
+if FLAGS.use_skip_thoughts:
+    x_test = pd.read_csv(filepath_or_buffer=filepath, sep=',',
+                         usecols=["InputSentence1", "InputSentence2", "InputSentence3", "InputSentence4",
+                                  "RandomFifthSentenceQuiz1", "RandomFifthSentenceQuiz2"]).values
+else:
+    x_test = np.load(filepath).astype(dtype=np.int32)
+
 vocab = np.load(FLAGS.data_sentences_vocab_path, allow_pickle=True)  # vocab contains [symbol: id]
 vocabLookup = dict((v, k) for k, v in vocab.item().items())  # flip our vocab dict so we can easy lookup [id: symbol]
+vocabLookup[0] = '<pad>'
 
 """ Evaluating model"""
 
@@ -151,7 +162,10 @@ with graph.as_default():
 
 
     # Creates the dataset
-    types = tuple(tf.string for _ in range(6)) + tuple([tf.int32])
+    if FLAGS.use_skip_thoughts:
+        types = tuple(tf.string for _ in range(6)) + tuple([tf.int32])
+    else:
+        types = tuple(tf.int32 for _ in range(7))
     dataset = tf.data.Dataset.from_generator(get_batch, output_types=types) \
         .map(functools.partial(create_story, **{
             "use_skip_thoughts": bool(FLAGS.use_skip_thoughts),
@@ -173,11 +187,6 @@ with graph.as_default():
         "features2": next_batch[4]
     }
 
-    print("CONTEXT", next_batch[0])
-    print("ENDING1",next_batch[1])
-    print("ENDING2",next_batch[2])
-    print("FEATURE1",  next_batch[3])
-    print("FEATURE2",  next_batch[4])
     next_batch_endings_y = tf.argmax(next_batch[5], axis=1, output_type=tf.int32)
 
     sess = tf.Session(config=session_conf)
