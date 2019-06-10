@@ -80,7 +80,6 @@ tf.flags.DEFINE_integer("hidden_layer_size", 100, "Size of hidden layer")
 tf.flags.DEFINE_integer("rnn_num", 2, "Number of RNNs")
 tf.flags.DEFINE_integer("feature_integration_layer_output_size", 100, "Number of outputs from the dense layer after the"
                                                                       " RNN cell that includes the features")
-tf.flags.DEFINE_bool("use_train_set", True, "Whether to use train set, use eval set for training otherwise")
 
 FLAGS = tf.flags.FLAGS
 FLAGS(sys.argv)
@@ -208,6 +207,8 @@ with graph.as_default():
         network = BiDirectional_LSTM(sess, vocab, network_input, FEATURES_SIZE, FLAGS.attention,
                                      FLAGS.attention_size)
         eval_predictions, _, _ = network.build_model()
+        if FLAGS.use_skip_thoughts:
+            next_batch_endings_y = next_batch_endings_y[0]
 
         # Restore the variables without loading the meta graph!
         saver = tf.train.Saver()
@@ -239,7 +240,12 @@ with graph.as_default():
                 res = sess.run(fetches, feed_dict={
                     handle: test_handle
                 })
-                res = res[0][0] if FLAGS.predict else res[0]
+                if FLAGS.use_skip_thoughts:
+                    pred = eval_predictions.eval()[0]
+                    actual = next_batch_endings_y.eval()[0]
+                    res = int(pred == actual)
+                else:
+                    res = res[0][0] if FLAGS.predict else res[0]
                 results.append(res)
                 it += 1
                 print(f"Iteration {it} - {datetime.datetime.now() - a} - {keyword}: {res}")
