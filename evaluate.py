@@ -101,16 +101,21 @@ if FLAGS.predict:
         filepath = f"{ROOT_DIR}/data/processed/test-stories.csv.npy"
 else:
     if FLAGS.use_skip_thoughts:
-        filepath = f"{ROOT_DIR}/data/test_for_report-stories_labels.csv"
-        labels = np.array(pd.read_csv(filepath_or_buffer=filepath, sep=',', usecols=["AnswerRightEnding"]).values).flatten()
-    elif not FLAGS.use_validation_set:
-        filepath = f"{ROOT_DIR}/data/processed/test_for_report-stories_labels.csv.npy"
-        labels = np.load(f"{ROOT_DIR}/data/processed/test_for_report-stories_labels.csv_labels.npy").astype(dtype=np.int32)
-        labels -= 1
+        if FLAGS.use_validation_set:
+            filepath = f"{ROOT_DIR}/data/eval_stories.csv"
+            labels = np.array(pd.read_csv(filepath, sep=',', usecols=["AnswerRightEnding"]).values).flatten()
+        else:
+            filepath = f"{ROOT_DIR}/data/test_for_report-stories_labels.csv"
+            labels = np.array(pd.read_csv(filepath_or_buffer=filepath, sep=',', usecols=["AnswerRightEnding"]).values).flatten()
     else:
-        filepath = f"{ROOT_DIR}/data/processed/eval_stories.csv.npy"
-        labels = np.load(f"{ROOT_DIR}/data/processed/eval_stories.csv_labels.npy").astype(dtype=np.int32)
-        labels -= 1
+        if FLAGS.use_validation_set:
+            filepath = f"{ROOT_DIR}/data/processed/eval_stories.csv.npy"
+            labels = np.load(f"{ROOT_DIR}/data/processed/eval_stories.csv_labels.npy").astype(dtype=np.int32)
+        else:
+            filepath = f"{ROOT_DIR}/data/processed/test_for_report-stories_labels.csv.npy"
+            labels = np.load(f"{ROOT_DIR}/data/processed/test_for_report-stories_labels.csv_labels.npy").astype(
+                dtype=np.int32)
+labels -= 1
 
 
 EMBEDDING_SIZE = 4800 if FLAGS.use_skip_thoughts else FLAGS.word_embedding_dimension
