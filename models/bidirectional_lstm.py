@@ -52,10 +52,24 @@ class BiDirectional_LSTM:
                 ending = tf.expand_dims(ending, 1)
                 return ending
 
-            ending1_embedding = clean_dimensions(ending1_embedding)
-            ending2_embedding = clean_dimensions(ending2_embedding)
-            per_sentence_states = tf.concat([context_embedding, ending1_embedding,
+            if FLAGS.batch_size >1:
+                ending1_embedding = clean_dimensions(ending1_embedding)
+                ending2_embedding = clean_dimensions(ending2_embedding)
+                per_sentence_states = tf.concat([context_embedding, ending1_embedding,
                                              ending2_embedding], axis=1)
+            else:
+                context_embedding = tf.squeeze(context_embedding)
+                ending1_embedding = tf.squeeze(ending1_embedding, axis=0)
+                ending2_embedding = tf.squeeze(ending2_embedding, axis=0)
+                ending1_embedding = tf.reshape(ending1_embedding, [FLAGS.batch_size, FLAGS.sentence_length, FLAGS.word_embedding_dimension])
+                ending2_embedding = tf.reshape(ending2_embedding, [FLAGS.batch_size, FLAGS.sentence_length, FLAGS.word_embedding_dimension])
+                per_sentence_states = tf.concat([context_embedding, ending1_embedding,
+                                             ending2_embedding], axis=0)
+                per_sentence_states = tf.expand_dims(per_sentence_states, axis=0)
+                
+            
+            
+            
             with tf.variable_scope("word_rnn"):
                 # per_sentence_states = self._word_rnn(sentence_word_embeddings)
                 per_sentence_states = tf.reduce_mean(per_sentence_states, axis=2)

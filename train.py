@@ -274,7 +274,12 @@ with tf.Graph().as_default():
         "features1": next_batch_features_1,
         "features2": next_batch_features_2
     }
-
+    print("CONTEXT", next_batch_context)
+    print("ENDING1",next_batch_ending1)
+    print("ENDING2",next_batch_ending2)
+    print("FEATURE1",  next_batch_features_1)
+    print("FEATURE2",  next_batch_features_2)
+    
     train_init_op = iter.make_initializer(train_dataset, name='train_dataset')
     test_init_op = iter.make_initializer(test_dataset, name='test_dataset')
 

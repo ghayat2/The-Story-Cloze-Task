@@ -98,7 +98,7 @@ else:
     filepath = f"{ROOT_DIR}/data/test_for_report-stories_labels.csv"
     labels = np.array(pd.read_csv(filepath_or_buffer=filepath, sep=',', usecols=["AnswerRightEnding"]).values).flatten()
 
-EMBEDDING_SIZE = 4800 if FLAGS.use_skip_thoughts else 100
+EMBEDDING_SIZE = 4800 if FLAGS.use_skip_thoughts else FLAGS.word_embedding_dimension
 FEATURES_SIZE = 22 if FLAGS.used_features else 0
 
 print("Loading and preprocessing test dataset \n")
@@ -127,8 +127,8 @@ with graph.as_default():
     shapes = (
         [FLAGS.batch_size, 1, sentence_length * FLAGS.num_context_sentences] if FLAGS.use_skip_thoughts
         else [FLAGS.batch_size, FLAGS.num_context_sentences, sentence_length],
-        [FLAGS.batch_size, 1, EMBEDDING_SIZE],
-        [FLAGS.batch_size, 1, EMBEDDING_SIZE],
+        [FLAGS.batch_size, 1, sentence_length],
+        [FLAGS.batch_size, 1, sentence_length],
         [FLAGS.batch_size, 1, FEATURES_SIZE],
         [FLAGS.batch_size, 1, FEATURES_SIZE],
         [FLAGS.batch_size, 1, 2]
@@ -173,6 +173,11 @@ with graph.as_default():
         "features2": next_batch[4]
     }
 
+    print("CONTEXT", next_batch[0])
+    print("ENDING1",next_batch[1])
+    print("ENDING2",next_batch[2])
+    print("FEATURE1",  next_batch[3])
+    print("FEATURE2",  next_batch[4])
     next_batch_endings_y = tf.argmax(next_batch[5], axis=1, output_type=tf.int32)
 
     sess = tf.Session(config=session_conf)
@@ -186,7 +191,6 @@ with graph.as_default():
         # Restore the variables without loading the meta graph!
         saver = tf.train.Saver()
         saver.restore(sess, checkpoint_file)
-
         # Collect the predictions here
         results = []
 
