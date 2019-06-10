@@ -145,10 +145,6 @@ sentences = np.load(FLAGS.data_sentences_path).astype(dtype=np.int32) # [88k, se
 if not FLAGS.use_skip_thoughts:
     padding_sentences = np.zeros((sentences.shape[0], FLAGS.classes -1, sentences.shape[2]), dtype=np.int32)
     sentences = np.concatenate([sentences, padding_sentences], axis=1)
-# print(sentences[0])
-
-print(sentences.shape)
-# sentences = sentences[:10, :, :]
 
 init = np.load(FLAGS.data_sentences_vocab_path, allow_pickle=True)  # vocab contains [symbol: id]
 vocab = dict((k,v) for k,v in init.item().items())
@@ -158,25 +154,11 @@ vocabLookup[0] = '<pad>'
 # eval sentences
 # six sentences, plus label
 eval_sentences = np.load(FLAGS.data_sentences_eval_path).astype(dtype=np.int32)
-print("eval sentences shape", np.shape(eval_sentences))
-
 eval_labels = np.load(FLAGS.data_sentences_eval_labels_path).astype(dtype=np.int32)
 eval_labels -= 1
 
 assert FLAGS.classes == 2, "Classes must be 2!"
-# print(eval_sentences[0:1], eval_labels[0:1])
 
-# sentence embeddings
-# sentences is the vector of size 5 with the vector of size 30 with word numbers, [batch_size, sentence_len, vocab_size]
-# [
-#   [ 1, 3, 15, 151, .. , ],
-#   [ 1, 2 ], ... ]
-# ]
-
-# allSentences = sentences.squeeze(axis=1) # make continuous array
-
-# Create sesions
-# MODEL AND TRAINING PROCEDURE DEFINITION #
 with tf.Graph().as_default():
     allSentences = tf.constant(np.squeeze(d.endings(sentences), axis=1))
     randomPicker = PlainRandomPicker()
@@ -251,16 +233,19 @@ with tf.Graph().as_default():
     next_batch_context, next_batch_ending1, next_batch_ending2, next_batch_features_1, next_batch_features_2, next_batch_labels = iter.get_next()
 
     sentence_length = FLAGS.sentence_embedding_length if FLAGS.use_skip_thoughts else FLAGS.sentence_length
+    
     for ending_batch in (next_batch_ending1, next_batch_ending2):
         ending_batch.set_shape([FLAGS.batch_size, 1, sentence_length])
         if FLAGS.use_skip_thoughts:
             next_batch_context_shape = [FLAGS.batch_size, 1, sentence_length * FLAGS.num_context_sentences]
         else:
             next_batch_context_shape = [FLAGS.batch_size, FLAGS.num_context_sentences, sentence_length]
+            
     next_batch_context = tf.reshape(next_batch_context, next_batch_context_shape)
     next_batch_context.set_shape(next_batch_context_shape)
     features_size = int(FLAGS.use_pronoun_contrast) + int(FLAGS.use_n_grams_overlap) + \
                     (20 if FLAGS.use_sentiment_analysis else 0)
+                    
     if features_size > 0:
         next_batch_features_1 = tf.reshape(next_batch_features_1, [FLAGS.batch_size, 1, features_size])
         next_batch_features_2 = tf.reshape(next_batch_features_2, [FLAGS.batch_size, 1, features_size])
@@ -274,11 +259,6 @@ with tf.Graph().as_default():
         "features1": next_batch_features_1,
         "features2": next_batch_features_2
     }
-    print("CONTEXT", next_batch_context)
-    print("ENDING1",next_batch_ending1)
-    print("ENDING2",next_batch_ending2)
-    print("FEATURE1",  next_batch_features_1)
-    print("FEATURE2",  next_batch_features_2)
     
     train_init_op = iter.make_initializer(train_dataset, name='train_dataset')
     test_init_op = iter.make_initializer(test_dataset, name='test_dataset')
@@ -298,8 +278,6 @@ with tf.Graph().as_default():
         # Build execution graph
         network = BiDirectional_LSTM(sess, init, next_batch_x, features_size, FLAGS.attention, FLAGS.attention_size)
 
-        # train_logits: [batch_size]
-        # eval_predictions: [batch_size] (index of prediction
         eval_predictions, endings, train_logits = network.build_model()
 
         # Compare with next_batch_endings_y
@@ -310,7 +288,6 @@ with tf.Graph().as_default():
         else:
             raise RuntimeError(f"Loss function {FLAGS.loss_function} not supported.")
 
-        # correct_position = tf.cast(tf.argmax(next_batch_endings_y, axis=1), dtype=tf.int32)
         accuracy = tf.reduce_mean(
             tf.cast(
                 tf.equal(eval_predictions, next_batch_endings_y), dtype=tf.float32
@@ -331,11 +308,6 @@ with tf.Graph().as_default():
                                                             input_y: eval_labels[:train_labels_percentage]})
             sess.run(test_iterator.initializer, feed_dict={input_x: eval_sentences[train_sentences_percentage:],
                                                            input_y: eval_labels[train_labels_percentage:]})
-
-        # Iterator test for debugging to compare inputs
-        # iterTestSentences, iterTestLabels = sess.run([next_batch_context_x, next_batch_endings_y], {handle: train_handle})
-        # print("Story 1", data_utils.makeSymbolStory(iterTestSentences[0], vocabLookup))
-        # print("Label 1", iterTestLabels[0])
 
         # Define training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)

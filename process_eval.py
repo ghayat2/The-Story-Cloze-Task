@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import sys
 import numpy as np
-from collections import Counter
 import codecs
 import csv
 from keras.preprocessing.text import Tokenizer

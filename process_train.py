@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import sys
 import numpy as np
-from collections import Counter
 import codecs
 import csv
 from keras.preprocessing.text import Tokenizer
@@ -67,24 +66,6 @@ for story in texts:
         )
     )
 
-# data_1 = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
-
-print(dict(itertools.islice(vocab.items(), MAX_NB_WORDS)))
-
-# print(sequences[0:4])
-# if vocabname is not None:
-#     print(f"Loading vocab from data/{vocabname}")
-#     vocabfile = dict(np.load("data/processed/" + vocabname).item().items())
-#     vocab = default_dict(vocabfile["<unk>"], vocabfile)
-# else:
-#     vocab = {",": -1, "<unk>" : 0, "<bos>": 1, "<eos>": 2, "<pad>": 3}
-#     id = 4
-#     for w, _ in counter.most_common(20000 - 4):
-#         vocab.update({w:id})
-#         id += 1
-#
-#     #The words that are not present in the vocab should be encodded as the symbol <unk>
-#     vocab = default_dict(vocab["<unk>"], vocab)
 
 data = np.array(sequences, dtype=int)
 np.save("data/processed/" + filename + "_vocab", dict(itertools.islice(vocab.items(), MAX_NB_WORDS)))

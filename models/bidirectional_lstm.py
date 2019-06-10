@@ -98,11 +98,8 @@ class BiDirectional_LSTM:
         if FLAGS.rnn_cell == "LSTM":
             state = state[0]  # c_state
 
-        print("outputs[0]", outputs[0].get_shape())
         outputs_lst = [tf.expand_dims(x, axis=1) for x in outputs]
         outputs_tensor = tf.concat(outputs_lst, axis=1)
-        print("outputs_tensor", outputs_tensor.get_shape())
-
         sentence_states = [state]
 
         if self.attention is not None:  # with attention
@@ -146,14 +143,11 @@ class BiDirectional_LSTM:
                 ending_state2 = ending_states[:, 1:2, :]
                 story1 = tf.concat([sentence_states, ending_state1], axis=1)
                 story2 = tf.concat([sentence_states, ending_state2], axis=1)
+                
         with tf.variable_scope("ending") as ending_scope:
             with tf.name_scope("sentence_rnn"):
-
-                print(f"Story {1}", story1)
                 res = self._sentence_rnn(story1)
                 res = self._dropout_layer(res)
-
-                print("RES2", res)
 
             if self.feature_size > 0:
                 with tf.name_scope("features_dense"):
@@ -178,14 +172,10 @@ class BiDirectional_LSTM:
 
         ending_outputs = tf.stack([ending_outputs1, ending_outputs2], axis=1)
 
-        print("-------------ENDING_OUTPUTS-----------", ending_outputs)
-
         with tf.name_scope("eval_predictions"):
             endings = tf.squeeze(ending_outputs, axis=2)
             self.sanity_endings = endings
-            print("-------------ENDINGS-----------", endings)
             eval_predictions = tf.to_int32(tf.argmax(endings, axis=1))
-            print("-------------EVAL_PREDICTION-----------", eval_predictions)
 
         with tf.name_scope("train_predictions"):
             self.train_logits = tf.squeeze(ending_outputs[:, 0], axis=[1])
@@ -196,25 +186,19 @@ class BiDirectional_LSTM:
 
     def _add_attention(self, outputs: tf.Tensor, cell_output: tf.Tensor, prefix="") -> tf.Tensor:
         attention_mechanism = self._create_attention(outputs)
+        
         context, alignments, next_attention_state = self._compute_attention(
             attention_mechanism,
             cell_output,
             attention_state=attention_mechanism.initial_state(FLAGS.batch_size, dtype=tf.float32))
-        #        with tf.name_scope("summaries"):
-        #            self._attention_summaries(alignments, prefix=prefix)
+
         return context
 
     def _compute_attention(self, mechanism: tf.contrib.seq2seq.AttentionMechanism, cell_output: tf.Tensor,
                            attention_state: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
-        # https://github.com/tensorflow/tensorflow/blob/r1.8/tensorflow/contrib/seq2seq
-        # /python/ops/attention_wrapper.py
-        # Alignments shape is [batch_size, 1, memory_time].
+
         alignments, next_attention_state = mechanism(cell_output, attention_state)
-        # Reshape from [batch_size, memory_time] to [batch_size, 1, memory_time]
         expanded_alignments = tf.expand_dims(alignments, axis=1)
-        # Context is the inner product of alignments and values along the memory time dimension.
-        # The attention_mechanism.values shape is [batch_size, memory_time, memory_size].
-        # The matmul is over memory_time, so the output shape is [batch_size, 1, memory_size].
         context = tf.matmul(expanded_alignments, mechanism.values)
         # We then squeeze out the singleton dim.
         context = tf.squeeze(context, axis=[1])
@@ -241,7 +225,6 @@ class BiDirectional_LSTM:
         Create attention image and attention summary.
         """
         # Reshape to (batch, tgt_seq_len, src_seq_len, 1)
-        print("alignments", alignments.get_shape())
         attention_images = tf.expand_dims(tf.expand_dims(alignments, axis=-1), axis=-1)
         attention_images = tf.transpose(attention_images, perm=(0, 2, 1, 3))  # make img horizontal
         # Scale to range [0, 255]
