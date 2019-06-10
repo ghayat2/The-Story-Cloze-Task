@@ -71,7 +71,7 @@ tf.flags.DEFINE_integer("num_neg_back", 2, "Number of negative back endings")
 tf.flags.DEFINE_integer("ratio_neg_random", 4, "Ratio of negative random endings")
 tf.flags.DEFINE_integer("ratio_neg_back", 2, "Ratio of negative back endings")
 
-tf.flags.DEFINE_float("dropout_rate", 0.7, "Dropout rate")
+tf.flags.DEFINE_float("dropout_rate", 0.0, "Dropout rate")
 
 tf.flags.DEFINE_string("path_embeddings", "data/wordembeddings-dim100.word2vec", "Path to the word2vec embeddings")
 tf.flags.DEFINE_string("embeddings", "w2v", "embedding types. Options are: w2v, w2v_google, glove")
@@ -242,10 +242,12 @@ with graph.as_default():
                 break
 
 if FLAGS.predict:
-    with open(f"group{FLAGS.group_number}_accuracy_{CHECKPOINT_FILE}", 'w') as f:
+    with open(f"group{FLAGS.group_number}_predictions_{CHECKPOINT_FILE}", 'w') as f:
         for i in range(len(results)):
             f.write(str(results[i]) + "\n")
 else:
     # Only printing out the average accuracy
     avg = np.average(results)
     print(f"Avg accuracy: {avg}")
+    with open(f"group{FLAGS.group_number}_accuracy_{CHECKPOINT_FILE}", "w") as f:
+        f.write(str(avg))
