@@ -114,7 +114,7 @@ else:
             filepath = f"{ROOT_DIR}/data/processed/test_for_report-stories_labels.csv.npy"
             labels = np.load(f"{ROOT_DIR}/data/processed/test_for_report-stories_labels.csv_labels.npy").astype(
                 dtype=np.int32)
-labels -= 1
+    labels -= 1
 
 
 EMBEDDING_SIZE = 4800 if FLAGS.use_skip_thoughts else FLAGS.word_embedding_dimension
@@ -253,9 +253,9 @@ with graph.as_default():
                 break
 
 if FLAGS.predict:
-    with open(f"group{FLAGS.group_number}_predictions_{CHECKPOINT_FILE}", 'w') as f:
+    with open(f"group{FLAGS.group_number}_predictions_{CHECKPOINT_FILE}.csv", 'w') as f:
         for i in range(len(results)):
-            f.write(str(results[i]) + "\n")
+            f.write(str(results[i]+1) + "\n")
 else:
     # Only printing out the average accuracy
     avg = np.average(results)
