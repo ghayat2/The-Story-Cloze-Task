@@ -1,0 +1,17 @@
+#!/bin/bash
+# Shell script to facilitate training our CIL model on the leonhard cluster
+
+leonhard_train() {
+    cd nlu-project2
+    git pull
+    module load python_gpu/3.7.1
+    job=$(bsub -n 4 -W 4:00 -R "rusage[mem=4096,ngpus_excl_p=1]" -N "python train.py $@")
+    echo "submitted job $job with params: $@"
+}
+
+echo -n "NETHZ username: "
+read username
+ssh $username@login.leonhard.ethz.ch << EOF
+    $(typeset -f)
+    leonhard_train $@
+EOF
